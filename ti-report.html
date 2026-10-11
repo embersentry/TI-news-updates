@@ -1,0 +1,860 @@
+<!doctype html>
+<html lang="en" data-palette="#FF5A1F,#FF8C1A,#9A958C">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Threat Intelligence Brief</title>
+<meta name="description" content="Daily threat intelligence brief: ranked vulnerabilities with analyst summaries, KQL hunting queries and IOCs.">
+<style>
+  :root{
+    --bg:#0A0A0A;
+    --surface:#141414;
+    --raised:#1C1C1A;
+    --border:#2E2E2B;
+    --border-strong:#403F3A;
+    --ink:#F4F0E6;
+    --ink-dim:#C9C4B8;
+    --muted:#9A958C;
+    --accent:#FF6A1A;
+    --accent-hot:#FF5A1F;
+    --accent-soft:rgba(255,106,26,.12);
+    --accent-line:rgba(255,106,26,.32);
+    --radius:4px;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+    --sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+    --maxw:1180px;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font-family:var(--sans);font-size:15px;line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 16px}
+
+  /* ---------- masthead ---------- */
+  header.mast{border-bottom:1px solid var(--border);background:linear-gradient(180deg,#121211 0%,var(--bg) 100%)}
+  .mast-in{max-width:var(--maxw);margin:0 auto;padding:28px 16px 24px;
+    display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;justify-content:space-between}
+  .brand{display:flex;align-items:center;gap:12px;min-width:0}
+  .brand-mark{width:30px;height:30px;flex:none}
+  .brand-txt h1{margin:0;font-size:19px;font-weight:650;letter-spacing:-.01em;line-height:1.25}
+  .brand-txt p{margin:2px 0 0;font-size:12.5px;color:var(--muted);letter-spacing:.02em}
+  .stamp{display:flex;flex-wrap:wrap;gap:22px}
+  .stamp div{min-width:0}
+  .stamp dt{font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin:0 0 3px}
+  .stamp dd{margin:0;font-family:var(--mono);font-size:13px;color:var(--ink-dim);white-space:nowrap}
+  .stamp dd b{color:var(--accent);font-weight:600}
+
+  /* ---------- priority banner ---------- */
+  .alert{margin:22px 0 0;background:var(--accent-soft);border:1px solid var(--accent-line);
+    border-left:3px solid var(--accent-hot);border-radius:var(--radius);padding:14px 16px;
+    display:flex;gap:12px;align-items:flex-start}
+  .alert svg{flex:none;margin-top:2px}
+  .alert .lbl{font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--accent);
+    font-weight:650;margin:0 0 3px}
+  .alert p{margin:0;font-size:14px;color:var(--ink)}
+
+  /* ---------- stat tiles ---------- */
+  .tiles{display:grid;gap:1px;background:var(--border);border:1px solid var(--border);
+    border-radius:var(--radius);margin:22px 0 0;overflow:hidden;
+    grid-template-columns:repeat(auto-fit,minmax(132px,1fr))}
+  .tile{background:var(--surface);padding:14px 16px 13px}
+  .tile .n{font-family:var(--mono);font-size:26px;font-weight:600;line-height:1.1;letter-spacing:-.02em;
+    font-variant-numeric:tabular-nums;display:block}
+  .tile .k{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-top:5px;display:block}
+  .tile.hot .n{color:var(--accent-hot)}
+  .tile.warn .n{color:var(--accent)}
+
+  /* ---------- posture bar ---------- */
+  .posture{margin:22px 0 0;border:1px solid var(--border);border-radius:var(--radius);
+    background:var(--surface);padding:15px 16px 14px}
+  .posture h2{margin:0 0 11px;font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);font-weight:650}
+  .pbar{display:flex;gap:2px;height:12px;border-radius:2px;overflow:hidden;background:var(--bg)}
+  .pseg{min-width:3px}
+  .pseg.s-exploited{background:var(--accent-hot)}
+  .pseg.s-attempts{background:repeating-linear-gradient(135deg,var(--accent) 0 3px,#8f3a0f 3px 6px)}
+  .pseg.s-none{background:var(--muted)}
+  .plegend{display:flex;flex-wrap:wrap;gap:16px;margin-top:11px}
+  .plegend span{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-dim)}
+  .swatch{width:11px;height:11px;border-radius:2px;flex:none}
+  .swatch.s-exploited{background:var(--accent-hot)}
+  .swatch.s-attempts{background:repeating-linear-gradient(135deg,var(--accent) 0 3px,#8f3a0f 3px 6px)}
+  .swatch.s-none{background:var(--muted)}
+  .plegend b{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--ink);font-weight:600}
+
+  /* ---------- controls ---------- */
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:26px 0 0;
+    padding-bottom:18px;border-bottom:1px solid var(--border)}
+  .search{position:relative;flex:1 1 230px;min-width:0}
+  .search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);pointer-events:none}
+  .search input{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--ink);
+    border-radius:var(--radius);padding:9px 11px 9px 34px;font-size:14px;font-family:var(--sans)}
+  .search input::placeholder{color:var(--muted)}
+  .search input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{background:var(--surface);border:1px solid var(--border);color:var(--ink-dim);
+    border-radius:999px;padding:6px 13px;font-size:12.5px;cursor:pointer;font-family:var(--sans);
+    transition:border-color .12s,color .12s,background .12s;white-space:nowrap}
+  .chip:hover{border-color:var(--border-strong);color:var(--ink)}
+  .chip[aria-pressed="true"]{background:var(--accent-hot);border-color:var(--accent-hot);color:#0A0A0A;font-weight:600}
+  .chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .btn{background:transparent;border:1px solid var(--border);color:var(--ink-dim);border-radius:var(--radius);
+    padding:7px 13px;font-size:12.5px;cursor:pointer;font-family:var(--sans);white-space:nowrap}
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .count{font-size:12.5px;color:var(--muted);font-family:var(--mono);white-space:nowrap}
+
+  /* ---------- entry cards ---------- */
+  .entries{margin:0;padding:0;list-style:none}
+  .card{border-bottom:1px solid var(--border)}
+  .card.is-open{background:var(--surface)}
+  .chead{display:flex;gap:16px;padding:20px 4px;cursor:pointer;align-items:flex-start;
+    width:100%;background:none;border:0;text-align:left;font-family:inherit;color:inherit}
+  .chead:hover .ctitle{color:var(--accent)}
+  .chead:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  .rank{flex:none;width:34px;height:34px;border-radius:var(--radius);display:grid;place-items:center;
+    font-family:var(--mono);font-size:14px;font-weight:650;font-variant-numeric:tabular-nums;
+    background:var(--raised);border:1px solid var(--border);color:var(--muted)}
+  .card[data-status="exploited_in_the_wild"] .rank{background:var(--accent-hot);border-color:var(--accent-hot);color:#0A0A0A}
+  .cbody{flex:1;min-width:0}
+  .ctitle{margin:0;font-size:16.5px;font-weight:600;line-height:1.4;letter-spacing:-.005em;
+    transition:color .12s}
+  .meta{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px;align-items:center}
+  .teaser{margin:10px 0 0;font-size:14px;color:var(--muted);
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .card.is-open .teaser{display:none}
+  .caret{flex:none;color:var(--muted);transition:transform .15s;margin-top:7px}
+  .card.is-open .caret{transform:rotate(90deg);color:var(--accent)}
+
+  /* pills: status differentiated by WEIGHT + always a text label, never hue alone */
+  .pill{font-size:11px;letter-spacing:.05em;text-transform:uppercase;font-weight:650;
+    padding:3px 9px;border-radius:999px;border:1px solid;white-space:nowrap;display:inline-flex;
+    align-items:center;gap:5px;line-height:1.5}
+  .pill.st-exploited{background:var(--accent-hot);border-color:var(--accent-hot);color:#0A0A0A}
+  .pill.st-attempts{background:transparent;border-color:var(--accent);color:var(--accent)}
+  .pill.st-none{background:transparent;border-color:var(--border-strong);color:var(--muted)}
+  .pill.kev{background:transparent;border-color:var(--accent-line);color:var(--accent)}
+  .pill.nopatch{background:var(--accent-hot);border-color:var(--accent-hot);color:#0A0A0A}
+  .pill.partial{background:transparent;border-color:var(--accent);color:var(--accent)}
+  .pill.plain{background:transparent;border-color:var(--border);color:var(--muted);
+    text-transform:none;letter-spacing:0;font-weight:500}
+  .cve{font-family:var(--mono);font-size:11.5px;color:var(--ink-dim);background:var(--raised);
+    border:1px solid var(--border);border-radius:3px;padding:2px 7px;white-space:nowrap}
+  .cve.more{color:var(--muted);background:transparent}
+
+  /* ---------- detail ---------- */
+  .detail{display:none;padding:0 4px 30px 54px}
+  .card.is-open .detail{display:block}
+  .sec{margin-top:26px}
+  .sec:first-child{margin-top:6px}
+  .sec > h3{margin:0 0 12px;font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;
+    color:var(--accent);font-weight:650;display:flex;align-items:center;gap:9px}
+  .sec > h3::after{content:"";flex:1;height:1px;background:var(--border)}
+  .prose{margin:0;font-size:14.5px;color:var(--ink-dim);line-height:1.72;max-width:76ch}
+  .facts{display:flex;flex-wrap:wrap;border:1px solid var(--border);
+    border-radius:var(--radius);overflow:hidden}
+  .facts div{flex:1 1 168px;background:var(--bg);padding:10px 13px;
+    border-right:1px solid var(--border);border-bottom:1px solid var(--border)}
+  .card.is-open .facts div{background:var(--raised)}
+  .facts dt{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 3px}
+  .facts dd{margin:0;font-size:13px;font-family:var(--mono);color:var(--ink-dim)}
+  ul.list{margin:0;padding-left:0;list-style:none}
+  ul.list li{position:relative;padding-left:20px;margin-bottom:8px;font-size:14px;color:var(--ink-dim);max-width:78ch}
+  ul.list li::before{content:"";position:absolute;left:4px;top:9px;width:5px;height:5px;
+    background:var(--accent);border-radius:1px}
+  ul.list.num{counter-reset:a}
+  ul.list.num li{counter-increment:a;padding-left:26px}
+  ul.list.num li::before{content:counter(a);background:none;font-family:var(--mono);font-size:11.5px;
+    color:var(--accent);top:0;left:2px;width:auto;height:auto;font-weight:600}
+
+  /* KQL */
+  .kql{border:1px solid var(--border);border-radius:var(--radius);margin-bottom:14px;background:var(--bg);overflow:hidden}
+  .kql-head{display:flex;gap:12px;align-items:flex-start;padding:11px 13px;
+    border-bottom:1px solid var(--border);background:var(--raised);flex-wrap:wrap}
+  .kql-head .kn{flex:1;min-width:140px}
+  .kql-head h4{margin:0;font-size:13.5px;font-weight:600;color:var(--ink)}
+  .kql-head p{margin:5px 0 0;font-size:12.5px;color:var(--muted);line-height:1.55;max-width:74ch}
+  .plat{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+    border:1px solid var(--accent-line);color:var(--accent);border-radius:3px;padding:2px 7px;
+    white-space:nowrap;flex:none}
+  .kql pre{margin:0;padding:14px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;
+    line-height:1.65;color:var(--ink-dim);tab-size:2}
+  .kql pre .k{color:var(--accent)}
+  .kql pre .s{color:#C9C4B8}
+  .kql pre .c{color:#6E6A63;font-style:italic}
+  .copy{flex:none;background:transparent;border:1px solid var(--border);color:var(--muted);
+    border-radius:3px;padding:4px 9px;font-size:11px;cursor:pointer;font-family:var(--sans);white-space:nowrap}
+  .copy:hover{border-color:var(--accent);color:var(--accent)}
+  .copy.ok{border-color:var(--accent-hot);color:var(--accent-hot)}
+
+  /* IOC table */
+  .tbl-wrap{border:1px solid var(--border);border-radius:var(--radius);overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  thead th{text-align:left;padding:9px 13px;background:var(--raised);color:var(--muted);
+    font-size:10px;letter-spacing:.09em;text-transform:uppercase;font-weight:650;
+    border-bottom:1px solid var(--border);white-space:nowrap}
+  tbody td{padding:10px 13px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--ink-dim)}
+  tbody tr:last-child td{border-bottom:0}
+  td.v{font-family:var(--mono);font-size:12.5px;color:var(--ink);overflow-wrap:anywhere;min-width:120px}
+  td.t{font-family:var(--mono);font-size:11.5px;color:var(--accent);white-space:nowrap}
+  td.ctx{min-width:220px;line-height:1.55}
+  td.src{font-size:12px;color:var(--muted);min-width:130px}
+  .cf{font-size:10px;letter-spacing:.06em;text-transform:uppercase;font-weight:650;padding:2px 7px;
+    border-radius:999px;border:1px solid;white-space:nowrap}
+  .cf.high{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent)}
+  .cf.medium{background:transparent;border-color:var(--border-strong);color:var(--ink-dim)}
+  .cf.low{background:transparent;border-color:var(--border);color:var(--muted)}
+  tr.is-note td{background:rgba(255,106,26,.05)}
+  .note-row{font-size:12.5px;color:var(--muted);font-style:italic}
+  .refs{margin:0;padding:0;list-style:none}
+  .refs li{margin-bottom:7px}
+  .refs a{color:var(--accent);text-decoration:none;font-size:13px;font-family:var(--mono);
+    overflow-wrap:anywhere;border-bottom:1px solid transparent}
+  .refs a:hover{border-bottom-color:var(--accent)}
+
+  /* ---------- provenance ---------- */
+  .prov{margin:40px 0 0;border:1px solid var(--border);border-left:3px solid var(--border-strong);
+    border-radius:var(--radius);background:var(--surface)}
+  .prov > summary{cursor:pointer;padding:15px 18px;font-size:13px;font-weight:600;color:var(--ink);
+    list-style:none;display:flex;align-items:center;gap:10px}
+  .prov > summary::-webkit-details-marker{display:none}
+  .prov > summary:hover{color:var(--accent)}
+  .prov > summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  .prov[open] > summary{border-bottom:1px solid var(--border)}
+  .prov-body{padding:18px}
+  .prov-body h4{margin:20px 0 9px;font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;
+    color:var(--muted);font-weight:650}
+  .prov-body h4:first-child{margin-top:0}
+  .prov-body dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:7px 14px;font-size:13.5px}
+  .prov-body dt{font-weight:650;color:var(--accent);font-size:11px;letter-spacing:.06em;
+    text-transform:uppercase;padding-top:3px}
+  .prov-body dd{margin:0;color:var(--ink-dim)}
+
+  footer.foot{margin:44px 0 0;border-top:1px solid var(--border);padding:20px 0 50px;
+    display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between;align-items:center}
+  footer.foot p{margin:0;font-size:12px;color:var(--muted);font-family:var(--mono)}
+  .drop-hint{font-size:12px;color:var(--muted)}
+
+  .empty{padding:60px 4px;text-align:center;color:var(--muted);font-size:14px}
+  body.dragging::after{content:"Drop a TI JSON file to load it";position:fixed;inset:14px;
+    border:2px dashed var(--accent);border-radius:8px;background:rgba(10,10,10,.9);color:var(--accent);
+    display:grid;place-items:center;font-size:17px;font-weight:600;z-index:99;pointer-events:none}
+
+  @media (max-width:720px){
+    .brand{align-items:flex-start}
+    .detail{padding-left:4px}
+    .stamp{gap:16px}
+    .mast-in{padding-top:22px}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+  /* ---------- print ---------- */
+  @media print{
+    :root{--bg:#fff;--surface:#fff;--raised:#f4f2ee;--border:#d5d2cb;--border-strong:#b5b1a8;
+          --ink:#111;--ink-dim:#2a2a28;--muted:#5d5a54;--accent:#B83F00;--accent-hot:#B83F00;
+          --accent-soft:#faeee6;--accent-line:#e0b79e}
+    body{font-size:10.5pt}
+    .controls,.caret,.copy,footer.foot,.drop-hint{display:none!important}
+    .detail{display:block!important;padding-left:0;page-break-inside:avoid}
+    .teaser{display:none!important}
+    .card{page-break-inside:avoid;border-bottom:1px solid var(--border)}
+    .chead{cursor:default;padding:14px 0}
+    .card[data-status="exploited_in_the_wild"] .rank{background:#B83F00;color:#fff}
+    .pill.st-exploited,.pill.nopatch{background:#B83F00;color:#fff}
+    .kql pre{white-space:pre-wrap;word-break:break-word}
+    .prov{border-left-width:2px}
+    .prov-body{display:block!important}
+    a[href]::after{content:" (" attr(href) ")";font-size:8pt;color:#5d5a54}
+    .refs a::after{content:none}
+  }
+</style>
+</head>
+<body>
+<header class="mast">
+  <div class="mast-in">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <path d="M16 2 4 7v9.5C4 23.2 9.1 28.8 16 30c6.9-1.2 12-6.8 12-13.5V7L16 2Z"
+              stroke="#FF6A1A" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M16 11v6" stroke="#FF6A1A" stroke-width="2.4" stroke-linecap="round"/>
+        <circle cx="16" cy="21.5" r="1.5" fill="#FF6A1A"/>
+      </svg>
+      <div class="brand-txt">
+        <h1 id="feed-name">Threat Intelligence Brief</h1>
+        <p id="feed-sub">—</p>
+      </div>
+    </div>
+    <dl class="stamp" id="stamp"></dl>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="alert-slot"></div>
+  <section class="tiles" id="tiles" aria-label="Report statistics"></section>
+  <section class="posture" id="posture" aria-label="Exploitation posture"></section>
+
+  <div class="controls">
+    <div class="search">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <circle cx="7" cy="7" r="4.5" stroke="#9A958C" stroke-width="1.6"/>
+        <path d="m10.5 10.5 3 3" stroke="#9A958C" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+      <input type="search" id="q" placeholder="Search titles, CVEs, summaries, IOCs…" aria-label="Search entries">
+    </div>
+    <div class="chips" id="status-chips" role="group" aria-label="Filter by exploitation status"></div>
+    <div class="chips" role="group" aria-label="Additional filters">
+      <button class="chip" id="f-kev" aria-pressed="false">KEV only</button>
+      <button class="chip" id="f-nopatch" aria-pressed="false">No / partial patch</button>
+    </div>
+    <button class="btn" id="toggle-all">Expand all</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <ul class="entries" id="entries"></ul>
+  <div class="empty" id="empty" hidden>No entries match the current filters.</div>
+
+  <details class="prov" id="prov">
+    <summary>
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <circle cx="8" cy="8" r="6.4" stroke="#FF6A1A" stroke-width="1.5"/>
+        <path d="M8 7.2v4" stroke="#FF6A1A" stroke-width="1.7" stroke-linecap="round"/>
+        <circle cx="8" cy="4.9" r=".95" fill="#FF6A1A"/>
+      </svg>
+      Provenance, collection limitations &amp; confidence legend — read before operational use
+    </summary>
+    <div class="prov-body" id="prov-body"></div>
+  </details>
+
+  <footer class="foot">
+    <p id="foot-meta">—</p>
+    <span class="drop-hint">Drag &amp; drop another TI JSON file onto this page to view it</span>
+  </footer>
+</main>
+
+<script id="ti-data" type="application/json">{"schema_version":"1.0","feed_id":"ti-daily-top10","feed_name":"Daily Threat Intelligence Output - Top 10 Vulnerabilities and Cyber Incidents","report":{"check_performed_at":"2026-10-11T00:00:00Z","check_performed_at_local":"2026-10-11","timezone":"UTC","coverage_window":{"start":"2026-10-10T00:00:00Z","end":"2026-10-11T00:00:00Z","duration_hours":24,"note":"Ranked by active-exploitation status and remediation urgency. Entries are items whose status materially changed, or that remained the dominant operational priority, within the 24-hour window. Several entries were first disclosed 2026-10-01 to 2026-10-08 but are included because exploitation, KEV deadlines or vendor guidance moved inside the window - a strict disclosure-date-only filter would omit the most urgent items."},"entry_count":10,"generated_by":"manual-research","next_check_due":"2026-10-12T00:00:00Z"},"collection_metadata":{"collection_method":"open-source web search aggregation","limitations":["This environment's outbound network access is restricted to a search tool; vendor advisories, the CISA KEV JSON feed and researcher blogs could not be fetched directly. Content is drawn from search-result summaries of those sources.","Indicator values marked confidence 'medium' or 'low', and any indicator whose source field says 'as relayed', MUST be validated against the primary vendor advisory before being used for blocking.","File hashes were not available through the accessible sources and are therefore absent. Where a vendor publishes hashes (for example Fortinet FG-IR-26-175, Check Point sk1000171, Huntress and Wiz IOC sections), retrieve them directly.","KQL queries are hunting starting points written against standard Microsoft Sentinel and Defender XDR table schemas. They have NOT been executed against a live workspace. Validate table availability, tune thresholds and baseline for false positives before promoting any query to an analytics rule.","Where sources conflict, the conflict is recorded in the entry summary rather than silently resolved."],"confidence_legend":{"high":"Corroborated by the vendor advisory or by multiple independent reputable sources.","medium":"Reported by a single reputable source, or by secondary coverage of a primary source not directly accessible.","low":"Single-sourced and uncorroborated; treat as an investigative lead only."},"exploitation_status_values":["exploited_in_the_wild","exploitation_attempts_reported_unconfirmed","public_poc_available","no_known_exploitation"],"kql_platform_values":["sentinel","defender_xdr"],"ioc_types_present":["account","actor","authoritative_source","behaviour","config_exposure","file_extension_path","filename","filepath","function_name","geolocation","internal_target","ipv4","malware","port","service_name","stix_package","target_file","timestamp","ttp","uri_path"]},"vulnerabilities":[{"rank":1,"id":"TI-2026-10-11-001","title":"Fortinet FortiMail IBE Path Traversal Zero-Day Exploited for Unauthenticated File Write and Appliance Implant (CVE-2026-104286)","cve_ids":["CVE-2026-104286"],"vendor":"Fortinet","affected_products":["FortiMail 8.0.0 - 8.0.1","FortiMail 7.6.0 - 7.6.6","FortiMail 7.4.0 - 7.4.8","FortiMail 7.2.0 - 7.2.9"],"category":"vulnerability","cvss_v3":null,"severity":"critical","exploitation_status":"exploited_in_the_wild","kev_listed":true,"kev_due_date":"2026-10-04","patch_available":"partial","first_reported":"2026-10-02","last_updated":"2026-10-10","confidence":"high","summary":"Fortinet disclosed an actively exploited path traversal flaw in the FortiMail Identity-Based Encryption (IBE) component that allows an unauthenticated, remote attacker to write arbitrary files to the appliance filesystem over the HTTPS management/IBE interface. Because the write primitive lands as root on an appliance that normally sits at the network edge, exploitation gives full device takeover rather than mere file tampering. Fortinet's advisory (FG-IR-26-175) lists seven files added or modified on compromised appliances, and the inclusion of /data/etc/ld.so.preload and a patched /bin/smit shows the actors established persistence surviving reboot and config reload, not just a one-shot write. Post-exploitation activity reported by responders includes creation of a rogue mail archive account that silently forwards archived mail to attacker infrastructure, making this an espionage/collection problem as well as an availability problem. Fortinet has not stated when exploitation began or how many customers were affected, and because the bug was used before public disclosure, applying a workaround does NOT establish that an appliance is clean - affected organisations should treat exposed appliances as suspect and hunt for the file and configuration artefacts below. Immediate mitigation is to disable IBE and restrict management interface access to trusted networks, then move to a fixed build as Fortinet publishes it per branch.","recommended_actions":["Disable Identity-Based Encryption (IBE) if not required.","Restrict management and IBE interface exposure to trusted source networks only.","Compare the seven advisory-listed files against Fortinet's published hashes; treat any ld.so.preload or liblog.so presence as a compromise indicator.","Audit mail archive account configuration for unrecognised accounts and external archive destinations.","Preserve logs, configuration and a forensic image BEFORE remediating an appliance you suspect is compromised."],"kql":[{"platform":"sentinel","table":"CommonSecurityLog","name":"FortiMail - inbound traffic from reported CVE-2026-104286 exploitation IPs","description":"Flags any firewall/proxy-logged communication with the two attacker IPs reported in CVE-2026-104286 exploitation. Tune DeviceVendor to the product forwarding your CEF logs.","query":"let fortimail_ioc_ips = dynamic([\"79.141.169.187\",\"45.129.0.192\"]);\nCommonSecurityLog\n| where TimeGenerated > ago(30d)\n| where SourceIP in (fortimail_ioc_ips) or DestinationIP in (fortimail_ioc_ips)\n| project TimeGenerated, DeviceVendor, DeviceProduct, DeviceName, Activity,\n          SourceIP, SourcePort, DestinationIP, DestinationPort,\n          RequestURL, DeviceAction, ApplicationProtocol\n| sort by TimeGenerated desc"},{"platform":"sentinel","table":"Syslog","name":"FortiMail - appliance implant and persistence artefacts in syslog","description":"Hunts the Fortinet-published on-appliance file artefacts and the rogue archive account name in syslog forwarded from FortiMail.","query":"let implant_artifacts = dynamic([\n    \"ld.so.preload\",\"liblog.so\",\"/data/bin/webconsole\",\"/data/bin/mailservice\",\n    \"/bin/smit\",\"/data/etc/httpd.conf\",\"migadmin.tar.gz\",\"archive234\"]);\nSyslog\n| where TimeGenerated > ago(30d)\n| where Computer has_any (\"fortimail\",\"fml\") or Facility in (\"local0\",\"local7\",\"daemon\",\"cron\")\n| where SyslogMessage has_any (implant_artifacts)\n| extend MatchedArtifact = tostring(set_intersection(\n      extract_all(@\"([A-Za-z0-9_\\./-]+)\", SyslogMessage), implant_artifacts)[0])\n| project TimeGenerated, Computer, Facility, SeverityLevel, MatchedArtifact, SyslogMessage\n| sort by TimeGenerated desc"},{"platform":"sentinel","table":"Syslog","name":"FortiMail - IBE decrypt failures and invalid Base64 (pre-exploitation signal)","description":"The path traversal is reached through the IBE decryption path; bursts of invalid Base64 / decrypt failures from a single source are a reported precursor artefact. Threshold is a starting point - baseline before alerting.","query":"Syslog\n| where TimeGenerated > ago(14d)\n| where SyslogMessage has \"ibe\" or SyslogMessage has_cs \"IBE\"\n| where SyslogMessage has_any (\"invalid base64\",\"base64 decode\",\"decrypt fail\",\"decryption failed\")\n| extend SrcIp = extract(@\"(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})\", 1, SyslogMessage)\n| summarize FailureCount = count(),\n            FirstSeen = min(TimeGenerated), LastSeen = max(TimeGenerated),\n            SampleMessage = any(SyslogMessage)\n          by Computer, SrcIp, bin(TimeGenerated, 1h)\n| where FailureCount > 20\n| sort by FailureCount desc"}],"iocs":[{"type":"ipv4","value":"79.141.169.187","context":"Attacker IP reported in CVE-2026-104286 exploitation; also the external archive destination (/uploads) for exfiltrated mail.","confidence":"medium","source":"secondary reporting - verify against FG-IR-26-175"},{"type":"ipv4","value":"45.129.0.192","context":"Second attacker IP reported in CVE-2026-104286 exploitation.","confidence":"medium","source":"secondary reporting - verify against FG-IR-26-175"},{"type":"filepath","value":"/data/etc/ld.so.preload","context":"Should not exist on a clean FortiMail appliance; used to hijack library loading for the implant.","confidence":"high","source":"Fortinet FG-IR-26-175 (as relayed by secondary reporting)"},{"type":"filepath","value":"/data/lib/liblog.so","context":"Malicious shared object loaded via ld.so.preload.","confidence":"high","source":"Fortinet FG-IR-26-175 (as relayed)"},{"type":"filepath","value":"/data/bin/webconsole","context":"Modified binary on compromised appliances.","confidence":"high","source":"Fortinet FG-IR-26-175 (as relayed)"},{"type":"filepath","value":"/data/bin/mailservice","context":"Modified binary on compromised appliances.","confidence":"high","source":"Fortinet FG-IR-26-175 (as relayed)"},{"type":"filepath","value":"/bin/smit","context":"Modified binary - persistence beyond initial file write.","confidence":"high","source":"Fortinet FG-IR-26-175 (as relayed)"},{"type":"filepath","value":"/data/etc/httpd.conf","context":"Modified web server configuration - persistence/webshell routing.","confidence":"high","source":"Fortinet FG-IR-26-175 (as relayed)"},{"type":"filepath","value":"/data/migadmin.tar.gz","context":"Attacker-staged archive; associated with root cron activity referencing /migadmin.","confidence":"high","source":"Fortinet FG-IR-26-175 (as relayed)"},{"type":"account","value":"archive234","context":"Rogue FortiMail archive account created via CLI, routing archived mail to attacker server.","confidence":"medium","source":"secondary reporting"},{"type":"behaviour","value":"root cron entries referencing /migadmin","context":"Post-exploitation persistence/tasking artefact.","confidence":"medium","source":"secondary reporting"}],"references":["https://watchtowr.com/intelligence/fortinet-fortimail-cve-2026-104286-faq/","https://thehackernews.com/2026/10/critical-fortimail-zero-day-flaw.html","https://www.theregister.com/security/2026/10/02/fortinet-sounds-the-alarm-over-actively-exploited-fortimail-zero-day/5300803","https://socprime.com/blog/cve-2026-104286-critical-fortimail-zero-day-exploited-for-unauthenticated-file-writes/"]},{"rank":2,"id":"TI-2026-10-11-002","title":"Unpatched AhsayCBS Backup Server Chain Exploited to Deploy JSP Webshells and XMRig Miner Masquerading as Microsoft Edge (CVE-2026-105133, CVE-2026-105134)","cve_ids":["CVE-2026-105133","CVE-2026-105134"],"vendor":"Ahsay","affected_products":["AhsayCBS all versions through 10.3.4 (latest release at time of reporting)"],"category":"vulnerability","cvss_v3":null,"severity":"critical","exploitation_status":"exploited_in_the_wild","kev_listed":false,"kev_due_date":null,"patch_available":"no","first_reported":"2026-10-08","last_updated":"2026-10-10","confidence":"high","summary":"Threat actors are chaining two AhsayCBS flaws against internet-exposed backup servers with no patch available. CVE-2026-105133 is a medium-severity authentication bypass in the checkSysPwd function; CVE-2026-105134 is a critical unauthenticated remote code execution flaw in the Replication Receiver component reached through the UpdateReceivers.do endpoint. Chained, they yield code execution as NT AUTHORITY\\SYSTEM on the backup host without credentials. Huntress observed exploitation beginning 2026-10-07 at 23:20:15 UTC and reported five targeted organisations within the first day, with activity comprising host reconnaissance, deployment of JSP webshells for durable access, and download of an XMRig cryptominer staged as edge.exe. Persistence is established through a service named MicrosoftEdgeUpdateSvc that launches msedge.exe - in reality a renamed copy of the legitimate NSSM (Non-Sucking Service Manager) utility - and a PowerShell script Taskgmr.ps1 stops the fake Edge service whenever Task Manager is opened, specifically to defeat casual analyst inspection. In at least one case the vulnerable driver WinRing0x64.sys was deployed to improve mining performance, which also introduces a kernel-level BYOVD primitive on the host. Critically, version 10.3.4 does NOT fix either flaw, so patch-level checks are not a valid control here: the only effective mitigation is removing the management interface from the internet. A compromised backup server is a worst-case foothold - it holds credentials to, and copies of, everything else.","recommended_actions":["Immediately remove AhsayCBS management and Replication Receiver interfaces from internet exposure; do not rely on upgrading to 10.3.4.","Hunt for the service name MicrosoftEdgeUpdateSvc and for edge.exe / msedge.exe running from non-standard paths.","Search for newly written .jsp files under AhsayCBS web application directories.","Treat any compromised backup server as a credential-theft incident: rotate all credentials and API keys stored by or accessible to the backup product.","Block outbound mining pool traffic and review egress on uncommon high ports including TCP/8029."],"kql":[{"platform":"defender_xdr","table":"DeviceProcessEvents","name":"AhsayCBS - XMRig masquerading as Microsoft Edge","description":"Detects Edge-named binaries executing from paths outside legitimate Microsoft Edge install locations, plus the NSSM-based service wrapper and the Task Manager evasion script.","query":"let legit_edge_paths = dynamic([\n    @\"c:\\program files (x86)\\microsoft\\edge\\\",\n    @\"c:\\program files\\microsoft\\edge\\\",\n    @\"c:\\program files (x86)\\microsoft\\edgeupdate\\\",\n    @\"c:\\program files (x86)\\microsoft\\edgewebview\\\"]);\nDeviceProcessEvents\n| where Timestamp > ago(30d)\n| where FileName in~ (\"edge.exe\",\"msedge.exe\",\"Taskgmr.ps1\")\n     or ProcessCommandLine has \"Taskgmr.ps1\"\n| extend LowerPath = tolower(FolderPath)\n| where not (LowerPath has_any (legit_edge_paths))\n| project Timestamp, DeviceName, AccountName, AccountDomain, FileName, FolderPath,\n          ProcessCommandLine, InitiatingProcessFileName, InitiatingProcessCommandLine, SHA256\n| sort by Timestamp desc"},{"platform":"defender_xdr","table":"DeviceProcessEvents","name":"AhsayCBS - fake MicrosoftEdgeUpdateSvc service creation and NSSM abuse","description":"Service-install and NSSM-wrapper indicators for the XMRig persistence mechanism.","query":"DeviceProcessEvents\n| where Timestamp > ago(30d)\n| where ProcessCommandLine has_any (\"MicrosoftEdgeUpdateSvc\",\"nssm\")\n   or (FileName in~ (\"sc.exe\",\"powershell.exe\",\"pwsh.exe\")\n       and ProcessCommandLine has_all (\"create\",\"Edge\"))\n| project Timestamp, DeviceName, AccountName, FileName, FolderPath, ProcessCommandLine,\n          InitiatingProcessFileName, InitiatingProcessCommandLine, SHA256\n| sort by Timestamp desc"},{"platform":"defender_xdr","table":"DeviceFileEvents","name":"AhsayCBS - JSP webshell drops and vulnerable driver staging","description":"Flags JSP files written under AhsayCBS application directories (webshells) and the WinRing0x64.sys BYOVD driver seen in this campaign.","query":"DeviceFileEvents\n| where Timestamp > ago(30d)\n| where (FileName endswith \".jsp\" and FolderPath has_any (\"ahsay\",\"cbs\",\"webapps\",\"tomcat\"))\n     or FileName =~ \"WinRing0x64.sys\"\n| project Timestamp, DeviceName, ActionType, FileName, FolderPath, SHA256,\n          InitiatingProcessFileName, InitiatingProcessCommandLine, InitiatingProcessAccountName\n| sort by Timestamp desc"},{"platform":"defender_xdr","table":"DeviceNetworkEvents","name":"AhsayCBS - Monero pool egress and exploitation of UpdateReceivers.do","description":"Outbound mining traffic on the reported pool port plus any host-observed requests to the vulnerable Replication Receiver endpoint.","query":"DeviceNetworkEvents\n| where Timestamp > ago(30d)\n| where RemotePort == 8029\n     or RemoteUrl has_any (\"UpdateReceivers.do\",\"checkSysPwd\")\n| project Timestamp, DeviceName, ActionType, InitiatingProcessFileName, InitiatingProcessCommandLine,\n          RemoteIP, RemotePort, RemoteUrl, LocalIP, LocalPort\n| sort by Timestamp desc"},{"platform":"sentinel","table":"W3CIISLog","name":"AhsayCBS - web-tier requests to the vulnerable Replication Receiver endpoint","description":"Use where AhsayCBS is fronted by IIS or where equivalent reverse-proxy logs are ingested. Swap W3CIISLog for your proxy table as needed.","query":"W3CIISLog\n| where TimeGenerated > ago(30d)\n| where csUriStem has_any (\"UpdateReceivers.do\",\"/obs/\",\"/cbs/\")\n| summarize RequestCount = count(), Statuses = make_set(scStatus, 10),\n            Methods = make_set(csMethod, 5), UserAgents = make_set(csUserAgent, 10),\n            FirstSeen = min(TimeGenerated), LastSeen = max(TimeGenerated)\n          by cIP, csUriStem, sSiteName\n| sort by RequestCount desc"}],"iocs":[{"type":"filename","value":"edge.exe","context":"XMRig cryptominer staged under a Microsoft Edge name.","confidence":"high","source":"Huntress"},{"type":"filename","value":"msedge.exe","context":"Renamed copy of legitimate NSSM used as the service wrapper.","confidence":"high","source":"Huntress"},{"type":"filename","value":"Taskgmr.ps1","context":"PowerShell evasion script - stops the fake Edge service when Task Manager opens.","confidence":"high","source":"Huntress"},{"type":"filename","value":"WinRing0x64.sys","context":"Known-vulnerable driver deployed to enhance mining; BYOVD risk.","confidence":"medium","source":"secondary reporting"},{"type":"service_name","value":"MicrosoftEdgeUpdateSvc","context":"Persistence service masquerading as Edge updater.","confidence":"high","source":"Huntress"},{"type":"uri_path","value":"/UpdateReceivers.do","context":"Replication Receiver endpoint exploited for RCE (CVE-2026-105134).","confidence":"high","source":"Huntress"},{"type":"function_name","value":"checkSysPwd","context":"Vulnerable function for the authentication bypass (CVE-2026-105133).","confidence":"high","source":"Huntress"},{"type":"port","value":"8029/tcp","context":"Monero mining pool port observed in this campaign.","confidence":"medium","source":"secondary reporting"},{"type":"file_extension_path","value":"*.jsp under AhsayCBS web directories","context":"JSP webshells deployed for durable access.","confidence":"high","source":"Huntress"},{"type":"timestamp","value":"2026-10-07T23:20:15Z","context":"First observed exploitation (earliest hunt boundary).","confidence":"high","source":"Huntress"}],"references":["https://www.huntress.com/blog/ahsaycbs-flaws-exploit","https://www.bleepingcomputer.com/news/security/unpatched-ahsaycbs-flaws-exploited-to-deploy-webshells-mine-crypto/","https://securityonline.info/ahsaycbs-vulnerabilities-exploited/"]},{"rank":3,"id":"TI-2026-10-11-003","title":"Atlassian Data Center Unauthenticated Arbitrary File Read Exploited Within Hours of Public PoC Across Eight Products (CVE-2026-21589)","cve_ids":["CVE-2026-21589"],"vendor":"Atlassian","affected_products":["Jira Data Center / Jira Service Management Data Center","Confluence Data Center","Bitbucket Data Center","Bamboo, Crowd, Fisheye/Crucible and other self-hosted Data Center products (8 products total per advisory)"],"category":"vulnerability","cvss_v3":9.3,"severity":"critical","exploitation_status":"exploited_in_the_wild","kev_listed":false,"kev_due_date":null,"patch_available":"yes","first_reported":"2026-10-05","last_updated":"2026-10-10","confidence":"high","summary":"Atlassian disclosed an unauthenticated arbitrary file read affecting eight self-hosted Data Center products on 2026-10-05, rated CVSS 9.3. A detailed technical write-up with a working proof of concept followed roughly a day later, and honeypot networks began logging exploitation attempts within about two hours of that release - so the vendor's original 'no known exploitation' statement is now obsolete and should not be used to justify deferring the patch. Observed activity has been predominantly opportunistic: fingerprinting affected products, then sweeping for configuration files and sensitive data. The highest-value target is WEB-INF/classes/dbconfig.xml, which holds database connection strings and credentials in cleartext, alongside servlet configuration and plugin-embedded API keys. Researchers have demonstrated that a successful file read can be chained to take over a Jira administrator account, though that outcome has been shown as feasible rather than confirmed in observed intrusions, and reporting notes no post-compromise credential use had been seen at the time of writing. Tens of thousands of internet-facing deployments reportedly remain unpatched. No vendor IOC list has been published, which makes retrospective log review the primary detection route - and usefully, because the vulnerability is a file read reached over HTTP, existing web access logs can evidence prior targeting without any endpoint agent.","recommended_actions":["Patch to the fixed versions in Atlassian's 2026-10-05 advisory; prioritise internet-facing Jira/Confluence/Bitbucket Data Center.","Retrospectively review web access logs from 2026-10-05 onward for path traversal sequences reaching plugin resource paths.","Assume database credentials are disclosed on any instance showing successful dbconfig.xml reads - rotate DB credentials, plugin API keys and service account secrets.","Review Jira/Confluence administrator accounts for unexpected additions, password changes or API token creation."],"kql":[{"platform":"sentinel","table":"W3CIISLog","name":"Atlassian CVE-2026-21589 - path traversal file-read attempts (IIS)","description":"Looks for traversal encodings and sensitive-file targets in request paths and query strings against Atlassian endpoints. scStatus 200 on a traversal request indicates a likely successful read.","query":"let traversal_patterns = dynamic([\"../\",\"..%2f\",\"..%252f\",\"%2e%2e%2f\",\"..\\\\\",\"..%5c\"]);\nlet sensitive_targets = dynamic([\"dbconfig.xml\",\"web.xml\",\"WEB-INF\",\"seraph-config.xml\",\"server.xml\",\"atlassian-jira.log\",\"confluence.cfg.xml\"]);\nW3CIISLog\n| where TimeGenerated > datetime(2026-10-05)\n| extend FullRequest = strcat(csUriStem, \"?\", coalesce(csUriQuery, \"\"))\n| where FullRequest has_any (traversal_patterns) or FullRequest has_any (sensitive_targets)\n| summarize AttemptCount = count(),\n            Successful200s = countif(scStatus == \"200\"),\n            SamplePaths = make_set(FullRequest, 15),\n            UserAgents = make_set(csUserAgent, 10),\n            FirstSeen = min(TimeGenerated), LastSeen = max(TimeGenerated)\n          by cIP, sSiteName, sIP\n| extend LikelySuccessful = Successful200s > 0\n| sort by LikelySuccessful desc, AttemptCount desc"},{"platform":"sentinel","table":"AzureDiagnostics","name":"Atlassian CVE-2026-21589 - WAF / App Gateway view of traversal attempts","description":"Equivalent hunt for environments where Atlassian is published through Azure Application Gateway or Front Door WAF. Adapt ResourceType to your front door.","query":"let traversal_patterns = dynamic([\"../\",\"..%2f\",\"..%252f\",\"%2e%2e%2f\"]);\nAzureDiagnostics\n| where TimeGenerated > datetime(2026-10-05)\n| where Category in (\"ApplicationGatewayAccessLog\",\"ApplicationGatewayFirewallLog\",\"FrontdoorAccessLog\",\"FrontdoorWebApplicationFirewallLog\")\n| extend ReqUri = coalesce(column_ifexists(\"requestUri_s\", \"\"), column_ifexists(\"requestUri\", \"\"))\n| extend SrcIp = coalesce(column_ifexists(\"clientIp_s\", \"\"), column_ifexists(\"clientIP_s\", \"\"))\n| where ReqUri has_any (traversal_patterns) or ReqUri has_any (\"dbconfig.xml\",\"WEB-INF\")\n| summarize Attempts = count(), SampleUris = make_set(ReqUri, 15),\n            FirstSeen = min(TimeGenerated), LastSeen = max(TimeGenerated)\n          by SrcIp, Category, Resource\n| sort by Attempts desc"},{"platform":"defender_xdr","table":"DeviceFileEvents","name":"Atlassian CVE-2026-21589 - sensitive config file access on Atlassian hosts","description":"Host-side corroboration: reads of Atlassian configuration files by the web application process. Expect legitimate startup noise - baseline and focus on off-cycle access.","query":"DeviceFileEvents\n| where Timestamp > datetime(2026-10-05)\n| where FileName in~ (\"dbconfig.xml\",\"seraph-config.xml\",\"confluence.cfg.xml\",\"bitbucket.properties\")\n| where InitiatingProcessFileName in~ (\"java.exe\",\"java\",\"tomcat.exe\",\"catalina.sh\")\n| project Timestamp, DeviceName, ActionType, FileName, FolderPath,\n          InitiatingProcessFileName, InitiatingProcessCommandLine, InitiatingProcessAccountName\n| sort by Timestamp desc"}],"iocs":[{"type":"note","value":"NO_PUBLIC_IOC_LIST","context":"No vendor or researcher IOC list (IPs/hashes) published for CVE-2026-21589 as of 2026-10-11. Detection is behavioural - use the KQL above against historical web logs.","confidence":"high","source":"multiple sources explicitly state no public IOCs"},{"type":"target_file","value":"WEB-INF/classes/dbconfig.xml","context":"Primary attacker objective - cleartext database connection credentials.","confidence":"high","source":"watchTowr PoC analysis (as relayed)"},{"type":"behaviour","value":"Repeated path-traversal sequences resolving to plugin resource paths","context":"Core exploitation pattern in web access logs.","confidence":"high","source":"secondary reporting"},{"type":"behaviour","value":"Product fingerprinting followed by sweeps for configuration files","context":"Observed opportunistic post-PoC mass-scanning pattern.","confidence":"high","source":"honeypot reporting"},{"type":"timestamp","value":"2026-10-06","context":"Public PoC release; exploitation began approximately two hours later. Use as the hunt start boundary.","confidence":"medium","source":"secondary reporting (sources differ slightly on PoC date)"}],"references":["https://securityonline.info/cve-2026-21589-exploitation-in-the-wild/","https://www.esecurityplanet.com/news/news-atlassian-cve-2026-21589-file-read-flaw/","https://threatlabsnews.xcitium.com/blog/atlassian-cve-2026-21589-probed-two-hours-after-poc/","https://www.rescana.com/post/critical-cve-2026-21589-vulnerability-exposes-atlassian-data-center-products-to-unauthenticated-file-disclosure"]},{"rank":4,"id":"TI-2026-10-11-004","title":"SonicWall SMA1000 Pre-Authentication SSRF (CVSS 10.0) with Honeypot-Observed Exploit Attempts Against Internal CouchDB (CVE-2026-102255)","cve_ids":["CVE-2026-102255"],"vendor":"SonicWall","affected_products":["SMA1000 series: models 6210, 7210, 8200v (Appliance WorkPlace interface)"],"category":"vulnerability","cvss_v3":10.0,"severity":"critical","exploitation_status":"exploitation_attempts_reported_unconfirmed","kev_listed":false,"kev_due_date":null,"patch_available":"yes","first_reported":"2026-10-10","last_updated":"2026-10-10","confidence":"medium","summary":"SonicWall patched a maximum-severity (CVSS 10.0) pre-authentication server-side request forgery flaw in the Appliance WorkPlace interface of SMA1000 remote access gateways, exploitable remotely with no authentication and no user interaction. This is the third pre-auth SSRF in the SMA1000 line in 2026, so organisations that patched in September are not covered. Exploitation status is disputed and this entry is deliberately rated medium confidence: SonicWall's advisory (SNWLID-2026-0017) states there is currently no evidence of in-the-wild exploitation of anything fixed in the release, while a researcher reports honeypot traffic attempting to exploit this specific CVE. No successful intrusion through this CVE has been publicly confirmed. The reported attempt pattern is the most useful detection content available: crafted HTTP OPTIONS requests through the WorkPlace / Extraweb interface aimed at reaching the appliance's internal CouchDB service on 127.0.0.1:5984, with one single-sourced claim that default CouchDB credentials were then tried. Because an SSRF on an edge VPN appliance pivots directly to loopback-bound internal services that assume they are unreachable, treat exposed SMA1000 appliances as a patch-now item regardless of the exploitation dispute. Fixed builds are 12.4.3-03670 and 12.5.0-03082 or later.","recommended_actions":["Upgrade SMA1000 appliances to 12.4.3-03670 / 12.5.0-03082 or later - do not assume September patching covers this.","Review appliance access logs for OPTIONS requests to WorkPlace/Extraweb endpoints from untrusted sources.","Check for unexpected access to the appliance's internal CouchDB service and rotate any credentials it holds.","Verify the appliance management interface is not internet-exposed."],"kql":[{"platform":"sentinel","table":"CommonSecurityLog","name":"SonicWall SMA1000 CVE-2026-102255 - OPTIONS requests to WorkPlace/Extraweb","description":"Hunts the reported SSRF attempt pattern in CEF logs from SonicWall appliances. OPTIONS is rare in normal WorkPlace traffic, which makes volume a useful signal.","query":"CommonSecurityLog\n| where TimeGenerated > ago(30d)\n| where DeviceVendor has \"SonicWall\" or DeviceProduct has_any (\"SMA\",\"Secure Mobile Access\")\n| where RequestMethod =~ \"OPTIONS\" or RequestURL has_any (\"extraweb\",\"workplace\",\"__extraweb__\")\n| summarize AttemptCount = count(),\n            Methods = make_set(RequestMethod, 10),\n            SampleUrls = make_set(RequestURL, 15),\n            Actions = make_set(DeviceAction, 5),\n            FirstSeen = min(TimeGenerated), LastSeen = max(TimeGenerated)\n          by SourceIP, DeviceName\n| sort by AttemptCount desc"},{"platform":"sentinel","table":"CommonSecurityLog","name":"SonicWall SMA1000 CVE-2026-102255 - SSRF targeting loopback CouchDB (port 5984)","description":"Looks for the loopback/CouchDB target string in request data - the distinguishing artefact of this SSRF attempt chain.","query":"CommonSecurityLog\n| where TimeGenerated > ago(30d)\n| extend Payload = strcat(coalesce(RequestURL, \"\"), \" \", coalesce(RequestContext, \"\"), \" \", coalesce(AdditionalExtensions, \"\"))\n| where Payload has_any (\"127.0.0.1:5984\",\"localhost:5984\",\":5984\",\"_all_dbs\",\"_utils\")\n| project TimeGenerated, DeviceVendor, DeviceProduct, DeviceName, SourceIP, SourcePort,\n          RequestMethod, RequestURL, DeviceAction, Payload\n| sort by TimeGenerated desc"}],"iocs":[{"type":"note","value":"NO_PUBLIC_NETWORK_IOCS","context":"No attacker IPs, hashes or domains published for CVE-2026-102255 as of 2026-10-11. Detection is behavioural only.","confidence":"high","source":"search across vendor and secondary reporting found none"},{"type":"behaviour","value":"HTTP OPTIONS request to Appliance WorkPlace / Extraweb interface","confidence":"medium","context":"Reported honeypot exploit-attempt pattern.","source":"researcher honeypot report (single-sourced)"},{"type":"internal_target","value":"127.0.0.1:5984","context":"Appliance-internal CouchDB service targeted via the SSRF.","confidence":"medium","source":"researcher honeypot report"},{"type":"behaviour","value":"Default-credential attempts against internal CouchDB post-SSRF","context":"Single-sourced and uncorroborated - treat as a lead, not an established TTP.","confidence":"low","source":"single secondary source"}],"references":["https://www.scworld.com/news/10-0-sonicwall-ssrf-bug-now-exploited-in-sma1000-appliance-work-place","https://www.rescana.com/post/sonicwall-sma1000-cve-2026-102255-preauth-ssrf","https://securityonline.info/sonicwall-sma1000-vulnerability-cve-2026-102255/","https://dev.to/anoymask/sonicwall-sma1000-cve-2026-102255-ssrf-attack-attempts-targeting-internal-couchdb-28bb"]},{"rank":5,"id":"TI-2026-10-11-005","title":"CISA/FBI Joint Advisory AA26-281A - Integrity Technology Group / Flax Typhoon Espionage Operation; Five Legacy CVEs Added to KEV with 2026-10-11 Federal Deadline","cve_ids":["CVE-2015-3306","CVE-2023-22894","CVE-2021-3199","CVE-2016-3081","CVE-2015-5477"],"vendor":"Multiple (ProFTPD, Strapi, ONLYOFFICE, Apache, ISC)","affected_products":["ProFTPD mod_copy (CVE-2015-3306) - arbitrary file read/write via SITE CPFR / SITE CPTO, CVSS 10.0","Strapi (CVE-2023-22894)","ONLYOFFICE Docs (CVE-2021-3199)","Apache Struts (CVE-2016-3081)","ISC BIND (CVE-2015-5477)"],"category":"threat_actor_campaign","cvss_v3":10.0,"severity":"critical","exploitation_status":"exploited_in_the_wild","kev_listed":true,"kev_due_date":"2026-10-11","patch_available":"yes","first_reported":"2026-10-08","last_updated":"2026-10-11","confidence":"high","summary":"This entry is the highest-priority item on the deadline clock: CISA added five legacy CVEs to the Known Exploited Vulnerabilities catalog on 2026-10-08 with a remediation due date of 2026-10-11 - today - tied to activity described in joint advisory AA26-281A, published 2026-10-08. The advisory, led by the FBI with CISA, NSA and partners in the UK, Australia, Canada, Japan, New Zealand and Spain, details how Chinese government-linked threat actors enabled by the Integrity Technology Group (a Beijing contractor sanctioned by the US Treasury in January 2025, publicly associated with the Flax Typhoon / Ethereal Panda / RedJuliett cluster) combine automated large-scale scanning, botnet infrastructure and hands-on exploitation to steal sensitive data worldwide. The operational significance of the CVE selection is that none of these are new: the actors are harvesting access at scale from decade-old unpatched internet-facing services, with CVE-2015-3306 (ProFTPD mod_copy, CVSS 10.0, unauthenticated file read/write via SITE CPFR/CPTO) carrying an EPSS score reported between 97% and 100%. Secondary analysis describes initial access via credential-harvesting pages and password spraying against Exchange, persistence using SoftEther VPN clients renamed to impersonate legitimate Windows binaries, and collection through mailbox harvesting and DCSync credential theft - these specifics come from vendor write-ups rather than the primary advisory text, so validate against the advisory before building rigid detections. CISA publishes machine-readable indicators for this advisory in STIX JSON and STIX XML, which should be ingested directly rather than transcribed.","recommended_actions":["Treat the 2026-10-11 KEV due date as live: inventory and patch all five CVEs on internet-facing assets immediately.","Ingest the AA26-281A STIX JSON/XML indicator package into Sentinel/Defender threat intelligence rather than hand-copying indicators.","Hunt for SoftEther VPN binaries renamed to impersonate legitimate Windows executables.","Review Exchange authentication logs for password spraying and inspect for DCSync-style directory replication activity.","Audit for legacy internet-exposed services (ProFTPD, Struts, BIND, Strapi, ONLYOFFICE) that fall outside normal patch management."],"kql":[{"platform":"sentinel","table":"ThreatIntelIndicators","name":"AA26-281A - correlate ingested STIX indicators against network telemetry","description":"Pattern for matching the advisory's STIX indicator package once ingested, against CEF network logs. Use ThreatIntelligenceIndicator instead of ThreatIntelIndicators on workspaces not yet migrated to the new TI tables.","query":"let aa26281a_ips = ThreatIntelIndicators\n    | where TimeGenerated > ago(30d)\n    | where tostring(parse_json(AdditionalFields)[\"SourceSystem\"]) has \"AA26-281A\"\n         or Tags has \"AA26-281A\" or Tags has \"Flax Typhoon\"\n    | where ObservableKey in (\"ipv4-addr:value\",\"ipv6-addr:value\")\n    | distinct ObservableValue;\nCommonSecurityLog\n| where TimeGenerated > ago(30d)\n| where SourceIP in (aa26281a_ips) or DestinationIP in (aa26281a_ips)\n| project TimeGenerated, DeviceVendor, DeviceProduct, DeviceName, SourceIP, DestinationIP,\n          DestinationPort, RequestURL, DeviceAction, Activity\n| sort by TimeGenerated desc"},{"platform":"sentinel","table":"Syslog","name":"CVE-2015-3306 - ProFTPD mod_copy SITE CPFR/CPTO abuse","description":"Detects the unauthenticated file copy primitive used to read and write arbitrary files on ProFTPD servers.","query":"Syslog\n| where TimeGenerated > ago(30d)\n| where ProcessName has \"proftpd\" or SyslogMessage has \"proftpd\"\n| where SyslogMessage has_any (\"SITE CPFR\",\"SITE CPTO\",\"site cpfr\",\"site cpto\")\n| extend SrcIp = extract(@\"(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})\", 1, SyslogMessage)\n| summarize CommandCount = count(), SampleMessages = make_set(SyslogMessage, 10),\n            FirstSeen = min(TimeGenerated), LastSeen = max(TimeGenerated)\n          by Computer, SrcIp\n| sort by CommandCount desc"},{"platform":"defender_xdr","table":"DeviceProcessEvents","name":"AA26-281A - SoftEther VPN masquerading as legitimate Windows binaries","description":"Looks for SoftEther client artefacts and for Windows-system-named binaries running from non-system paths, the reported persistence TTP.","query":"let system_paths = dynamic([@\"c:\\windows\\system32\\\", @\"c:\\windows\\syswow64\\\", @\"c:\\windows\\winsxs\\\"]);\nlet masqueraded_names = dynamic([\"svchost.exe\",\"conhost.exe\",\"taskhostw.exe\",\"dllhost.exe\",\"sihost.exe\",\"winlogon.exe\",\"spoolsv.exe\"]);\nDeviceProcessEvents\n| where Timestamp > ago(30d)\n| where (FileName in~ masqueraded_names and not (tolower(FolderPath) has_any (system_paths)))\n     or ProcessCommandLine has_any (\"vpnclient\",\"vpncmd\",\"softether\",\"hamcore\")\n| project Timestamp, DeviceName, AccountName, FileName, FolderPath, ProcessCommandLine,\n          InitiatingProcessFileName, InitiatingProcessCommandLine, SHA256\n| sort by Timestamp desc"},{"platform":"defender_xdr","table":"IdentityLogonEvents","name":"AA26-281A - password spraying against Exchange","description":"Surfaces single-source authentication failures across many distinct accounts, the reported initial access TTP. Tune the distinct-account threshold to your environment.","query":"IdentityLogonEvents\n| where Timestamp > ago(30d)\n| where ActionType == \"LogonFailed\"\n| where Application has_any (\"Exchange\",\"OWA\",\"ActiveSync\",\"EWS\") or Protocol has_any (\"OWA\",\"ActiveSync\",\"EWS\")\n| summarize DistinctAccounts = dcount(AccountUpn), FailureCount = count(),\n            TargetedAccounts = make_set(AccountUpn, 50),\n            FirstSeen = min(Timestamp), LastSeen = max(Timestamp)\n          by IPAddress, bin(Timestamp, 1h)\n| where DistinctAccounts >= 10\n| sort by DistinctAccounts desc"}],"iocs":[{"type":"stix_package","value":"AA26-281A STIX JSON / STIX XML indicator files (published on the CISA advisory page)","context":"Authoritative machine-readable indicator set - ingest directly; indicator values were not transcribed into this config to avoid transcription error.","confidence":"high","source":"CISA AA26-281A"},{"type":"actor","value":"Integrity Technology Group (Flax Typhoon / Ethereal Panda / RedJuliett)","context":"Named enabling contractor; US Treasury sanctioned January 2025. Cluster aliasing is from vendor analysis, not the primary advisory.","confidence":"medium","source":"CISA AA26-281A + vendor analysis"},{"type":"ttp","value":"SoftEther VPN client renamed to impersonate legitimate Windows binaries","context":"Persistence / tunnelling. ATT&CK T1036.005 (Match Legitimate Name or Location).","confidence":"medium","source":"Picus Security analysis"},{"type":"ttp","value":"Password spraying against Exchange; credential-harvesting pages","context":"Initial access. ATT&CK T1110.003 / T1566.","confidence":"medium","source":"Picus Security analysis"},{"type":"ttp","value":"DCSync credential harvesting and mailbox collection","context":"Credential access / collection. ATT&CK T1003.006 / T1114.","confidence":"medium","source":"Picus Security analysis"},{"type":"geolocation","value":"Xiamen, China","context":"Access to exfiltrated data reportedly restricted to IPs in Xiamen.","confidence":"low","source":"SafeBreach summary (single-sourced)"}],"references":["https://www.cisa.gov/news-events/cybersecurity-advisories/aa26-281a","https://www.ic3.gov/CSA/2026/261008.pdf","https://thehackernews.com/2026/10/flax-typhoon-exploits-five-flaws-as.html","https://securityaffairs.com/200734/security/u-s-cisa-adds-proftpd-onlyoffice-docs-strapi-apache-struts-and-isc-bind-flaws-to-its-known-exploited-vulnerabilities-catalog.html","https://www.picussecurity.com/resource/blog/cisa-aa26-281a-how-chinese-government-linked-actors-steal-sensitive-data"]},{"rank":6,"id":"TI-2026-10-11-006","title":"Citrix NetScaler ADC / Gateway Pre-Authentication Memory Overflow in SAML Deployments Enabling RCE or DoS (CVE-2026-107406)","cve_ids":["CVE-2026-107406"],"vendor":"Citrix","affected_products":["NetScaler ADC and NetScaler Gateway 14.1 before 14.1-73.46","NetScaler ADC and NetScaler Gateway 13.1 before 13.1-64.29","NetScaler ADC 13.1-FIPS / NDcPP before 13.1-37.283"],"category":"vulnerability","cvss_v3":9.5,"severity":"critical","exploitation_status":"no_known_exploitation","kev_listed":false,"kev_due_date":null,"patch_available":"yes","first_reported":"2026-10-08","last_updated":"2026-10-10","confidence":"high","summary":"Citrix disclosed a critical memory overflow (CWE-119) in NetScaler ADC and NetScaler Gateway, rated CVSS 9.5, and is urging immediate patching. The flaw is only reachable when the appliance is configured for SAML - as either a service provider or an identity provider - which makes configuration review the fastest way to scope exposure. The CVSS vector indicates network-reachable exploitation with no authentication and no user interaction, though Citrix rates attack complexity as high, which is the main factor separating this from an immediate mass-exploitation event. Successful exploitation can result in remote code execution or a process crash producing denial of service. Citrix and corroborating reporting state there is no evidence of in-the-wild exploitation at this time; note that this is a distinct issue from the separately tracked, already-exploited NetScaler SAML zero-day CVE-2026-88779, so the two should not be conflated when scoping. Fixed builds are 14.1-73.46, 13.1-64.29 and 13.1-37.283 (FIPS/NDcPP) or later, per bulletin CTX697191. Interim mitigation is to restrict access to SAML and gateway interfaces and disable unused SAML configurations. One third-party tracker still shows no patch identified, which is stale - fixed builds exist.","recommended_actions":["Patch to 14.1-73.46 / 13.1-64.29 / 13.1-37.283 (FIPS, NDcPP) or later per CTX697191.","Enumerate appliances with SAML SP or IdP configuration - these are the only exploitable instances.","Disable unused SAML configurations and restrict gateway/SAML interface reachability as interim mitigation.","Monitor for NSPPE process crashes and unexpected appliance reboots as a DoS/exploitation signal."],"kql":[{"platform":"sentinel","table":"Syslog","name":"NetScaler - NSPPE packet engine crashes and restarts (DoS/exploitation signal)","description":"Memory-corruption exploitation attempts against the SAML path typically surface first as packet engine crashes. Correlate spikes with SAML endpoint traffic.","query":"Syslog\n| where TimeGenerated > ago(30d)\n| where Computer has_any (\"netscaler\",\"nsvpx\",\"adc\") or SyslogMessage has_any (\"NSPPE\",\"nsppe\")\n| where SyslogMessage has_any (\"crash\",\"core dump\",\"restarted\",\"segmentation fault\",\"panic\",\"NSPPE-\")\n| summarize EventCount = count(), SampleMessages = make_set(SyslogMessage, 10),\n            FirstSeen = min(TimeGenerated), LastSeen = max(TimeGenerated)\n          by Computer, bin(TimeGenerated, 1h)\n| where EventCount > 1\n| sort by LastSeen desc"},{"platform":"sentinel","table":"CommonSecurityLog","name":"NetScaler - anomalous volume to SAML endpoints","description":"Baselines request volume to SAML assertion-consumer and IdP endpoints per source IP so that exploitation bursts stand out. Adjust the threshold after baselining.","query":"CommonSecurityLog\n| where TimeGenerated > ago(30d)\n| where DeviceVendor has_any (\"Citrix\",\"NetScaler\") or DeviceProduct has_any (\"NetScaler\",\"ADC\",\"Gateway\")\n| where RequestURL has_any (\"/saml\",\"SamlRequest\",\"SAMLRequest\",\"SAMLResponse\",\"/cgi/samlauth\",\"/sso/saml\")\n| summarize RequestCount = count(), Methods = make_set(RequestMethod, 5),\n            SampleUrls = make_set(RequestURL, 10),\n            FirstSeen = min(TimeGenerated), LastSeen = max(TimeGenerated)\n          by SourceIP, DeviceName, bin(TimeGenerated, 1h)\n| where RequestCount > 100\n| sort by RequestCount desc"}],"iocs":[{"type":"note","value":"NO_IOCS_NO_KNOWN_EXPLOITATION","context":"No IOCs published; no in-the-wild exploitation reported for CVE-2026-107406 as of 2026-10-11. Included for patch prioritisation, not for retrospective hunting.","confidence":"high","source":"Citrix + corroborating reporting"},{"type":"config_exposure","value":"NetScaler configured as SAML Service Provider or Identity Provider","context":"Required precondition for exploitability - the key scoping indicator.","confidence":"high","source":"Citrix CTX697191"},{"type":"behaviour","value":"NSPPE packet engine crash or unexpected appliance restart","context":"Expected first-order artefact of a failed or DoS-outcome exploitation attempt.","confidence":"medium","source":"analyst assessment based on prior NetScaler memory-corruption cases"}],"references":["https://www.securityweek.com/citrix-urges-immediate-patching-of-critical-netscaler-vulnerability/","https://thehackernews.com/2026/10/citrix-patches-critical-netscaler-flaw.html","https://socprime.com/blog/cve-2026-107406-critical-netscaler-rce-flaw/"]},{"rank":7,"id":"TI-2026-10-11-007","title":"Citrix NetScaler SAML Memory Overflow Zero-Day Exploited in Targeted Attacks; KEV-Listed (CVE-2026-88779)","cve_ids":["CVE-2026-88779"],"vendor":"Citrix","affected_products":["NetScaler ADC and NetScaler Gateway configured as SAML SP or IdP"],"category":"vulnerability","cvss_v3":8.7,"severity":"high","exploitation_status":"exploited_in_the_wild","kev_listed":true,"kev_due_date":"2026-10-07","patch_available":"yes","first_reported":"2026-10-04","last_updated":"2026-10-09","confidence":"high","summary":"A separate NetScaler SAML memory overflow, CVE-2026-88779 (CVSS 8.7), was exploited as a zero-day in targeted attacks before Citrix shipped a fix. Citrix characterises the impact as denial of service under specific conditions, while researchers were still assessing whether the same defect can be driven to remote code execution - so the published 8.7 should be treated as a floor, not a ceiling, when prioritising. CISA added it to the KEV catalog on 2026-10-04 with a federal remediation deadline of 2026-10-07, which has now passed. Notably, reporting indicates exploitation hit appliances that had been patched only days earlier against the earlier September NetScaler zero-days, meaning recency of patching is not evidence of safety on this product line. Organisations should keep this distinct from both CVE-2026-107406 (critical, no known exploitation) and from the September chain CVE-2026-88771 / CVE-2026-88772, which was the one associated with webshell deployment and root access via the WHIPSHOT PHP webshell and SLAPSHOT Python tunneler. No IOCs specific to CVE-2026-88779 have been published; the available hunting content covers the September activity and the generic crash artefacts, and both are worth running because the same appliances and the same actor interest are in scope.","recommended_actions":["Confirm NetScaler appliances are on a build that fixes CVE-2026-88779 - the KEV deadline (2026-10-07) has passed.","Do not treat a recent patch cycle as assurance: hunt for compromise on any SAML-configured appliance exposed during late September / early October.","Hunt for WHIPSHOT PHP webshell and SLAPSHOT Python tunneler artefacts from the related September CVE-2026-88771/88772 activity.","Review appliance logs for NSPPE crashes and for DTLSv1.0 traffic on UDP/443."],"kql":[{"platform":"sentinel","table":"CommonSecurityLog","name":"NetScaler - DTLSv1.0 on UDP/443 (related 88772 exploitation artefact)","description":"Reported network artefact from the related September NetScaler exploitation. Run against NetScaler-adjacent network telemetry.","query":"CommonSecurityLog\n| where TimeGenerated > ago(45d)\n| where DestinationPort == 443 and Protocol has_any (\"UDP\",\"udp\",\"17\")\n| extend Payload = strcat(coalesce(RequestURL, \"\"), \" \", coalesce(AdditionalExtensions, \"\"), \" \", coalesce(Activity, \"\"))\n| where Payload has_any (\"DTLSv1.0\",\"DTLS 1.0\",\"DTLSv1\") or isempty(Payload)\n| summarize SessionCount = count(), BytesIn = sum(todouble(coalesce(ReceivedBytes, 0))),\n            FirstSeen = min(TimeGenerated), LastSeen = max(TimeGenerated)\n          by SourceIP, DestinationIP, DeviceName\n| sort by SessionCount desc"},{"platform":"sentinel","table":"Syslog","name":"NetScaler - webshell and tunneler artefacts (WHIPSHOT / SLAPSHOT)","description":"Hunts filesystem and process artefacts of the related NetScaler webshell campaign in appliance syslog. Expect low volume; any hit warrants investigation.","query":"Syslog\n| where TimeGenerated > ago(60d)\n| where Computer has_any (\"netscaler\",\"nsvpx\",\"adc\")\n| where SyslogMessage has_any (\"/var/netscaler/logon/\",\"/netscaler/ns_gui/\",\"\\.php\",\"python\",\"nsppe core\",\"shell\")\n| where SyslogMessage has_any (\"php\",\"python\",\"chmod\",\"wget\",\"curl\",\"base64\")\n| project TimeGenerated, Computer, Facility, SeverityLevel, ProcessName, SyslogMessage\n| sort by TimeGenerated desc"}],"iocs":[{"type":"note","value":"NO_CVE_SPECIFIC_IOCS","context":"No IOCs published specifically for CVE-2026-88779. Indicators below relate to the adjacent September NetScaler campaign (CVE-2026-88771 / CVE-2026-88772) on the same appliances.","confidence":"high","source":"analyst assessment of available reporting"},{"type":"malware","value":"WHIPSHOT","context":"PHP webshell deployed in the related September NetScaler zero-day exploitation.","confidence":"medium","source":"Google/Mandiant reporting (as relayed)"},{"type":"malware","value":"SLAPSHOT","context":"Python tunneler deployed in the related September NetScaler zero-day exploitation.","confidence":"medium","source":"Google/Mandiant reporting (as relayed)"},{"type":"behaviour","value":"DTLSv1.0 traffic on UDP/443","context":"Network artefact reported for CVE-2026-88772 exploitation.","confidence":"medium","source":"secondary reporting"},{"type":"behaviour","value":"NSPPE crash entries in appliance logs","context":"Crash artefact of SAML memory-overflow exploitation.","confidence":"medium","source":"secondary reporting"}],"references":["https://thehackernews.com/2026/10/new-netscaler-zero-day-exploited-in.html","https://www.bleepingcomputer.com/news/security/citrix-patches-netscaler-saml-zero-day-exploited-in-attacks/","https://www.securityweek.com/exploitation-of-citrix-netscaler-zero-day-hits-appliances-patched-days-earlier/","https://unit42.paloaltonetworks.com/netscaler-zero-days-exploited/"]},{"rank":8,"id":"TI-2026-10-11-008","title":"Check Point Security Management Pre-Auth Path Traversal Zero-Day and Security Gateway VPN RCE Under Active Exploitation; Both KEV-Listed (CVE-2026-93616, CVE-2026-85102)","cve_ids":["CVE-2026-93616","CVE-2026-85102"],"vendor":"Check Point","affected_products":["Security Management Server, Multi-Domain Security Management, Log Server, Multi-Domain Log Server, SmartEvent (CVE-2026-93616)","Security Gateway and Quantum Spark appliances - VPN certificate handling (CVE-2026-85102)"],"category":"vulnerability","cvss_v3":null,"severity":"critical","exploitation_status":"exploited_in_the_wild","kev_listed":true,"kev_due_date":"2026-09-25","patch_available":"yes","first_reported":"2026-09-22","last_updated":"2026-10-10","confidence":"high","summary":"Two Check Point flaws across different trust boundaries are both being exploited, and they require separate fixes - the single most common remediation error here is assuming one patch covers both. CVE-2026-93616 is a pre-authentication path traversal in the Security Management web service allowing unauthenticated attackers to upload and execute arbitrary scripts and load arbitrary Java classes on the management server; Check Point Research observed pinpointed exploitation attempts as early as 2026-07-23, while it was still a zero-day, giving the actors roughly two months of access before disclosure. CVE-2026-85102 is a pre-authentication RCE in Security Gateway VPN certificate handling, fixed 2026-09-09, with exploitation attempts against Quantum Spark customers observed from 2026-09-12. CISA added both to the KEV catalog on 2026-09-22 with a 2026-09-25 federal deadline. The management server compromise is the more severe outcome by a wide margin: it is the control plane for the entire firewall estate, so a compromise there implies policy tampering, credential exposure and potential pivot to every managed gateway, and recovery cannot be assumed from patching alone. LivePatch Take 26 and Jumbo takes addressing 85102 do not remediate 93616. Sources conflict on whether R82.20 is affected by CVE-2026-85102, so validate affected versions against Check Point sk1000171, which is also the authoritative IOC source.","recommended_actions":["Patch Security Management and Security Gateway components separately - verify each against sk1000171; a fix for one does not cover the other.","Run the hunting commands published in Check Point sk1000171 on management servers, including the search for oversized login usernames in management service logs.","Treat any compromised Security Management Server as a full firewall-estate incident: review policy changes, exported configurations and administrator accounts since 2026-07-23.","Rotate administrator credentials, certificates and API keys held by the management server.","Validate affected-version claims for R82.20 against the vendor advisory rather than secondary reporting."],"kql":[{"platform":"sentinel","table":"Syslog","name":"Check Point CVE-2026-93616 - oversized login usernames in management service logs","description":"Implements the vendor-described artefact: exploitation of the path traversal surfaces as abnormally long usernames in management service logs. Tune the length threshold against sk1000171.","query":"Syslog\n| where TimeGenerated > datetime(2026-07-01)\n| where Computer has_any (\"checkpoint\",\"cpmgmt\",\"smartcenter\",\"mds\") or ProcessName has_any (\"cpm\",\"httpd\",\"cpca\")\n| where SyslogMessage has_any (\"login\",\"username\",\"user=\")\n| extend ExtractedUser = extract(@'(?i)user(?:name)?[=:\\s\"]+([^\\s\"&,;]+)', 1, SyslogMessage)\n| extend UserLength = strlen(ExtractedUser)\n| where UserLength > 100\n| project TimeGenerated, Computer, ProcessName, UserLength, ExtractedUser, SyslogMessage\n| sort by UserLength desc"},{"platform":"sentinel","table":"Syslog","name":"Check Point CVE-2026-93616 - path traversal and script upload to management web service","description":"Looks for traversal encodings and script/class upload artefacts against the management web service.","query":"let traversal = dynamic([\"../\",\"..%2f\",\"..%252f\",\"%2e%2e%2f\",\"..\\\\\"]);\nSyslog\n| where TimeGenerated > datetime(2026-07-01)\n| where Computer has_any (\"checkpoint\",\"cpmgmt\",\"smartcenter\",\"mds\",\"smartevent\")\n| where SyslogMessage has_any (traversal)\n   or SyslogMessage has_any (\".jsp\",\".class\",\".jar\",\"web-inf\",\"upload\")\n| project TimeGenerated, Computer, Facility, ProcessName, SeverityLevel, SyslogMessage\n| sort by TimeGenerated desc"},{"platform":"sentinel","table":"CommonSecurityLog","name":"Check Point CVE-2026-85102 - anomalous VPN certificate handling activity","description":"Surfaces pre-auth VPN certificate errors and IKE/SSL VPN failures that spike from a single source, the reachable surface for the gateway RCE.","query":"CommonSecurityLog\n| where TimeGenerated > datetime(2026-09-01)\n| where DeviceVendor has \"Check Point\"\n| where Activity has_any (\"certificate\",\"cert\",\"ike\",\"vpn\") or Message has_any (\"certificate\",\"IKE\")\n| where DeviceAction has_any (\"drop\",\"reject\",\"block\") or Message has_any (\"invalid\",\"malformed\",\"failed\",\"error\")\n| summarize EventCount = count(), Activities = make_set(Activity, 10),\n            SampleMessages = make_set(Message, 10),\n            FirstSeen = min(TimeGenerated), LastSeen = max(TimeGenerated)\n          by SourceIP, DeviceName\n| where EventCount > 25\n| sort by EventCount desc"}],"iocs":[{"type":"authoritative_source","value":"Check Point sk1000171","context":"Vendor support article containing the authoritative IOC list and hunting commands. Indicator values were not available through open reporting and must be retrieved from the vendor portal.","confidence":"high","source":"Check Point"},{"type":"behaviour","value":"Oversized login usernames in management service logs","context":"Vendor-described exploitation artefact for CVE-2026-93616.","confidence":"medium","source":"secondary reporting of sk1000171"},{"type":"timestamp","value":"2026-07-23","context":"Earliest observed CVE-2026-93616 zero-day exploitation; use as the management server hunt start boundary.","confidence":"high","source":"Check Point Research"},{"type":"timestamp","value":"2026-09-12","context":"Earliest observed CVE-2026-85102 exploitation attempts against Quantum Spark; use as the gateway hunt start boundary.","confidence":"high","source":"Check Point"}],"references":["https://www.truesec.com/hub/blog/check-point-security-gateway-security-management-cve-2026-85102-cve-2026-93616","https://www.bleepingcomputer.com/news/security/check-point-warns-of-hackers-exploiting-security-gateway-vpn-rce-flaw/","https://www.rescana.com/post/checkpoint-gateway-management-cve-2026-85102-93616-kev","https://digital.nhs.uk/cyber-alerts/2026/cc-4849"]},{"rank":9,"id":"TI-2026-10-11-009","title":"Cisco Catalyst SD-WAN Manager API Authentication Bypass Exploited as a Zero-Day; KEV-Listed (CVE-2026-76504)","cve_ids":["CVE-2026-76504"],"vendor":"Cisco","affected_products":["Cisco Catalyst SD-WAN Manager (formerly vManage)"],"category":"vulnerability","cvss_v3":null,"severity":"critical","exploitation_status":"exploited_in_the_wild","kev_listed":true,"kev_due_date":"2026-10-03","patch_available":"yes","first_reported":"2026-10-01","last_updated":"2026-10-08","confidence":"medium","summary":"Cisco patched an API authentication bypass in Catalyst SD-WAN Manager that was already being exploited in the wild at the time of the fix (around 2026-09-30 to 2026-10-01). CISA added it to the KEV catalog with a federal remediation deadline of 2026-10-03, now passed. The severity here is architectural rather than purely technical: SD-WAN Manager is the orchestration plane for an entire WAN fabric, so an unauthenticated API bypass gives an attacker the ability to enumerate and potentially reconfigure edge routers, push templates and policies, and harvest device credentials across every managed site - a single-appliance compromise with estate-wide consequences, and a natural staging point for either espionage or destructive action. No public IOC set has been published, and the available reporting does not detail post-exploitation tooling, so detection has to rest on authentication and API-access anomalies: unauthenticated or unexpected calls to management API paths, new or modified device templates, and configuration pushes outside change windows. This entry is rated medium confidence because exploitation is well attested but the technical detail available through open reporting is thin. Note this is distinct from Cisco's October advisory bundle tracked separately in this report.","recommended_actions":["Verify Catalyst SD-WAN Manager is on a fixed release - the KEV deadline (2026-10-03) has passed.","Audit SD-WAN Manager API access logs for unauthenticated or anomalous requests predating the patch.","Review device templates, policies and configuration pushes for unauthorised changes since late September 2026.","Rotate device credentials and API tokens held by SD-WAN Manager; ensure the management interface is not internet-exposed."],"kql":[{"platform":"sentinel","table":"Syslog","name":"Cisco SD-WAN Manager - anomalous management API access and session anomalies","description":"Hunts API paths used by SD-WAN Manager for access without a preceding successful authentication event, plus unusual source concentration.","query":"Syslog\n| where TimeGenerated > datetime(2026-09-15)\n| where Computer has_any (\"vmanage\",\"sdwan\",\"catalyst-manager\")\n| where SyslogMessage has_any (\"/dataservice/\",\"/j_security_check\",\"/client/token\",\"/device/action\")\n| extend SrcIp = extract(@\"(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})\", 1, SyslogMessage)\n| extend IsAuthEvent = SyslogMessage has_any (\"j_security_check\",\"login\",\"authentication\")\n| summarize ApiCalls = countif(not(IsAuthEvent)), AuthEvents = countif(IsAuthEvent),\n            SampleMessages = make_set(SyslogMessage, 10),\n            FirstSeen = min(TimeGenerated), LastSeen = max(TimeGenerated)\n          by Computer, SrcIp\n| extend ApiCallsWithoutAuth = ApiCalls - AuthEvents\n| where AuthEvents == 0 and ApiCalls > 0\n| sort by ApiCalls desc"},{"platform":"sentinel","table":"Syslog","name":"Cisco SD-WAN Manager - template and policy changes outside change windows","description":"Surfaces configuration-plane changes on the SD-WAN controller. Replace the business-hours filter with your own change-window definition.","query":"Syslog\n| where TimeGenerated > datetime(2026-09-15)\n| where Computer has_any (\"vmanage\",\"sdwan\",\"catalyst-manager\")\n| where SyslogMessage has_any (\"template\",\"policy\",\"device attach\",\"config push\",\"feature-template\",\"admin\")\n| where SyslogMessage has_any (\"create\",\"update\",\"modify\",\"delete\",\"attach\",\"push\")\n| extend HourOfDay = datetime_part(\"hour\", TimeGenerated), DayOfWeek = dayofweek(TimeGenerated)\n| where HourOfDay \u003c 7 or HourOfDay > 19 or DayOfWeek in (0d, 6d)\n| project TimeGenerated, Computer, ProcessName, HourOfDay, SyslogMessage\n| sort by TimeGenerated desc"}],"iocs":[{"type":"note","value":"NO_PUBLIC_IOCS","context":"No attacker IPs, hashes, domains or post-exploitation tooling published for CVE-2026-76504 as of 2026-10-11. Detection is anomaly-based.","confidence":"high","source":"analyst assessment of available reporting"},{"type":"behaviour","value":"Unauthenticated requests to /dataservice/ API paths","context":"Expected exploitation surface for the API authentication bypass.","confidence":"medium","source":"analyst assessment based on product architecture"},{"type":"behaviour","value":"Unexpected device template or policy modification and configuration push","context":"Highest-impact post-exploitation action available on this platform.","confidence":"medium","source":"analyst assessment"}],"references":["https://www.securityweek.com/cisco-patches-exploited-catalyst-sd-wan-zero-day-vulnerability/","https://www.rapid7.com/blog/post/etr-critical-cisco-catalyst-sd-wan-manager-api-authentication-bypass-exploited-in-the-wild-cve-2026-76504/"]},{"rank":10,"id":"TI-2026-10-11-010","title":"Cisco October 2026 Security Release - 35 Vulnerabilities Including Multiple CVSS 9.8-10.0 Unauthenticated Root RCE Flaws in NX-OS, APIC, Meraki and Smart Software Manager On-Prem","cve_ids":["CVE-2026-76453","CVE-2026-76455","CVE-2026-76456","CVE-2026-76457","CVE-2026-76458","CVE-2026-76459","CVE-2026-76471","CVE-2026-76465","CVE-2026-76485","CVE-2026-76486","CVE-2026-76501","CVE-2026-76498","CVE-2026-76499","CVE-2026-76500","CVE-2026-76480","CVE-2026-76482","CVE-2026-76483","CVE-2026-76484","CVE-2026-20328","CVE-2026-76463","CVE-2026-76464","CVE-2026-76467","CVE-2026-76468","CVE-2026-76469","CVE-2026-76470","CVE-2026-76472"],"vendor":"Cisco","affected_products":["Cisco NX-OS (Nexus switches) - 5 critical RCE flaws, CVSS 9.8","Cisco NX-API (CVE-2026-76471) - CVSS 9.8, disabled by default","Nexus 3000/9000 MPLS OAM (CVE-2026-76465) and NGOAM (CVE-2026-76485/76486/76501) - CVSS 9.8","Application Policy Infrastructure Controller (APIC) - CVE-2026-76498/76499/76500, CVSS 9.8, vulnerable regardless of configuration","Smart Software Manager On-Prem - CVE-2026-76480/76482/76483/76484 critical, one advisory at CVSS 10.0","Cisco Meraki - 7 flaws grouped at CVSS 9.6 (one outlet reports 9.8 - scores conflict)"],"category":"vulnerability_bundle","cvss_v3":10.0,"severity":"critical","exploitation_status":"no_known_exploitation","kev_listed":false,"kev_due_date":null,"patch_available":"yes","first_reported":"2026-10-07","last_updated":"2026-10-08","confidence":"high","summary":"Cisco's October 2026 bundled security release, published 2026-10-07 at 16:00 GMT, covers 35 vulnerabilities including more than a dozen rated critical. Five NX-OS flaws allow arbitrary code execution with root privileges on Nexus data centre switches, and where code execution fails an attacker can still crash processes and force a device reload, making these an availability risk even when exploitation is imperfect. The NX-API flaw CVE-2026-76471 (CVSS 9.8) is reachable through a crafted HTTP request but the feature is disabled by default, so configuration state drives real exposure. The APIC flaws CVE-2026-76498/76499/76500 (CVSS 9.8) are the most concerning from a scoping perspective because Cisco states affected installations are vulnerable regardless of configuration - there is no mitigating setting. Smart Software Manager On-Prem carries four critical flaws with one advisory rated CVSS 10.0, some exploitable without authentication. Seven Meraki flaws are grouped at CVSS 9.6, though one outlet reports a 9.8 maximum, so scores conflict and should be confirmed per advisory. Cisco reports no malicious exploitation of these October issues so far and none of the advisories list workarounds, so upgrading is the only remediation. This entry is included for patch prioritisation: data-centre fabric control planes are high-value targets and historically attract exploitation once details and PoCs circulate, so the window between disclosure and weaponisation is the planning horizon. CVE lists here are drawn from secondary coverage of the advisories - confirm the authoritative list and fixed versions against Cisco PSIRT before building change records.","recommended_actions":["Prioritise APIC patching: affected installations are vulnerable regardless of configuration, with no mitigating setting.","Confirm whether NX-API is enabled on Nexus devices - it is disabled by default and gates exposure for CVE-2026-76471.","Patch Smart Software Manager On-Prem, including the CVSS 10.0 advisory, and confirm it is not internet-exposed.","Verify the full CVE list, fixed versions and per-advisory CVSS scores against Cisco PSIRT - secondary reporting conflicts on Meraki scores.","No workarounds exist: schedule upgrades rather than planning compensating controls."],"kql":[{"platform":"sentinel","table":"Syslog","name":"Cisco NX-OS / NX-API - crafted request and process crash indicators","description":"Watches for NX-API access and for the process crash / device reload outcome described as the fallback impact of the NX-OS flaws.","query":"Syslog\n| where TimeGenerated > ago(30d)\n| where Computer has_any (\"nexus\",\"nxos\",\"n9k\",\"n3k\") or SyslogMessage has_any (\"NXOS\",\"nxapi\")\n| where SyslogMessage has_any (\"nxapi\",\"NX-API\",\"SYSMGR-2-SERVICE_CRASHED\",\"SYSMGR-2-TMP_DIR_FULL\",\n                               \"core dump\",\"%SYSMGR\",\"reload\",\"process crash\")\n| summarize EventCount = count(), SampleMessages = make_set(SyslogMessage, 10),\n            FirstSeen = min(TimeGenerated), LastSeen = max(TimeGenerated)\n          by Computer, bin(TimeGenerated, 1h)\n| sort by LastSeen desc"},{"platform":"sentinel","table":"Syslog","name":"Cisco APIC / Smart Software Manager - unauthenticated management access attempts","description":"Surfaces management-plane access to APIC and SSM On-Prem from sources outside expected administrative ranges. Replace the admin range with your own.","query":"let approved_admin_ranges = dynamic([\"10.0.0.0/8\",\"172.16.0.0/12\",\"192.168.0.0/16\"]);\nSyslog\n| where TimeGenerated > ago(30d)\n| where Computer has_any (\"apic\",\"ssm\",\"smart-software-manager\",\"license\")\n| extend SrcIp = extract(@\"(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})\", 1, SyslogMessage)\n| where isnotempty(SrcIp)\n| where not(ipv4_is_in_any_range(SrcIp, approved_admin_ranges))\n| summarize EventCount = count(), SampleMessages = make_set(SyslogMessage, 10),\n            FirstSeen = min(TimeGenerated), LastSeen = max(TimeGenerated)\n          by Computer, SrcIp\n| sort by EventCount desc"}],"iocs":[{"type":"note","value":"NO_IOCS_NO_KNOWN_EXPLOITATION","context":"Cisco reports no malicious exploitation of the October 2026 bundle as of publication. No IOCs exist. This entry is a patch-prioritisation item, not a hunting item.","confidence":"high","source":"Cisco PSIRT (as relayed)"},{"type":"config_exposure","value":"NX-API enabled on Nexus devices","context":"Gates exploitability of CVE-2026-76471; disabled by default.","confidence":"high","source":"Cisco advisory (as relayed)"},{"type":"config_exposure","value":"Any APIC installation on an affected version","context":"Cisco states affected installs are vulnerable regardless of configuration - no mitigating setting.","confidence":"high","source":"Cisco advisory (as relayed)"}],"references":["https://www.cisco.com/c/en/us/support/docs/csa/cisco-sa-notice-fBn58ELx.html","https://www.bleepingcomputer.com/news/security/cisco-warns-of-critical-flaws-allowing-nexus-switch-takeover/","https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-hardening-nxosw1-cWzSbtR","https://the420.in/cisco-critical-vulnerabilities-nxos-meraki-apic-october-2026/"]}],"ioc_index":{"account":[{"value":"archive234","related_entry":"TI-2026-10-11-001","related_cves":["CVE-2026-104286"],"confidence":"medium"}],"actor":[{"value":"Integrity Technology Group (Flax Typhoon / Ethereal Panda / RedJuliett)","related_entry":"TI-2026-10-11-005","related_cves":["CVE-2015-3306","CVE-2023-22894","CVE-2021-3199","CVE-2016-3081","CVE-2015-5477"],"confidence":"medium"}],"authoritative_source":[{"value":"Check Point sk1000171","related_entry":"TI-2026-10-11-008","related_cves":["CVE-2026-93616","CVE-2026-85102"],"confidence":"high"}],"behaviour":[{"value":"root cron entries referencing /migadmin","related_entry":"TI-2026-10-11-001","related_cves":["CVE-2026-104286"],"confidence":"medium"},{"value":"Repeated path-traversal sequences resolving to plugin resource paths","related_entry":"TI-2026-10-11-003","related_cves":["CVE-2026-21589"],"confidence":"high"},{"value":"Product fingerprinting followed by sweeps for configuration files","related_entry":"TI-2026-10-11-003","related_cves":["CVE-2026-21589"],"confidence":"high"},{"value":"HTTP OPTIONS request to Appliance WorkPlace / Extraweb interface","related_entry":"TI-2026-10-11-004","related_cves":["CVE-2026-102255"],"confidence":"medium"},{"value":"Default-credential attempts against internal CouchDB post-SSRF","related_entry":"TI-2026-10-11-004","related_cves":["CVE-2026-102255"],"confidence":"low"},{"value":"NSPPE packet engine crash or unexpected appliance restart","related_entry":"TI-2026-10-11-006","related_cves":["CVE-2026-107406"],"confidence":"medium"},{"value":"DTLSv1.0 traffic on UDP/443","related_entry":"TI-2026-10-11-007","related_cves":["CVE-2026-88779"],"confidence":"medium"},{"value":"NSPPE crash entries in appliance logs","related_entry":"TI-2026-10-11-007","related_cves":["CVE-2026-88779"],"confidence":"medium"},{"value":"Oversized login usernames in management service logs","related_entry":"TI-2026-10-11-008","related_cves":["CVE-2026-93616","CVE-2026-85102"],"confidence":"medium"},{"value":"Unauthenticated requests to /dataservice/ API paths","related_entry":"TI-2026-10-11-009","related_cves":["CVE-2026-76504"],"confidence":"medium"},{"value":"Unexpected device template or policy modification and configuration push","related_entry":"TI-2026-10-11-009","related_cves":["CVE-2026-76504"],"confidence":"medium"}],"config_exposure":[{"value":"NetScaler configured as SAML Service Provider or Identity Provider","related_entry":"TI-2026-10-11-006","related_cves":["CVE-2026-107406"],"confidence":"high"},{"value":"NX-API enabled on Nexus devices","related_entry":"TI-2026-10-11-010","related_cves":["CVE-2026-76453","CVE-2026-76455","CVE-2026-76456","CVE-2026-76457","CVE-2026-76458","CVE-2026-76459","CVE-2026-76471","CVE-2026-76465","CVE-2026-76485","CVE-2026-76486","CVE-2026-76501","CVE-2026-76498","CVE-2026-76499","CVE-2026-76500","CVE-2026-76480","CVE-2026-76482","CVE-2026-76483","CVE-2026-76484","CVE-2026-20328","CVE-2026-76463","CVE-2026-76464","CVE-2026-76467","CVE-2026-76468","CVE-2026-76469","CVE-2026-76470","CVE-2026-76472"],"confidence":"high"},{"value":"Any APIC installation on an affected version","related_entry":"TI-2026-10-11-010","related_cves":["CVE-2026-76453","CVE-2026-76455","CVE-2026-76456","CVE-2026-76457","CVE-2026-76458","CVE-2026-76459","CVE-2026-76471","CVE-2026-76465","CVE-2026-76485","CVE-2026-76486","CVE-2026-76501","CVE-2026-76498","CVE-2026-76499","CVE-2026-76500","CVE-2026-76480","CVE-2026-76482","CVE-2026-76483","CVE-2026-76484","CVE-2026-20328","CVE-2026-76463","CVE-2026-76464","CVE-2026-76467","CVE-2026-76468","CVE-2026-76469","CVE-2026-76470","CVE-2026-76472"],"confidence":"high"}],"file_extension_path":[{"value":"*.jsp under AhsayCBS web directories","related_entry":"TI-2026-10-11-002","related_cves":["CVE-2026-105133","CVE-2026-105134"],"confidence":"high"}],"filename":[{"value":"edge.exe","related_entry":"TI-2026-10-11-002","related_cves":["CVE-2026-105133","CVE-2026-105134"],"confidence":"high"},{"value":"msedge.exe","related_entry":"TI-2026-10-11-002","related_cves":["CVE-2026-105133","CVE-2026-105134"],"confidence":"high"},{"value":"Taskgmr.ps1","related_entry":"TI-2026-10-11-002","related_cves":["CVE-2026-105133","CVE-2026-105134"],"confidence":"high"},{"value":"WinRing0x64.sys","related_entry":"TI-2026-10-11-002","related_cves":["CVE-2026-105133","CVE-2026-105134"],"confidence":"medium"}],"filepath":[{"value":"/data/etc/ld.so.preload","related_entry":"TI-2026-10-11-001","related_cves":["CVE-2026-104286"],"confidence":"high"},{"value":"/data/lib/liblog.so","related_entry":"TI-2026-10-11-001","related_cves":["CVE-2026-104286"],"confidence":"high"},{"value":"/data/bin/webconsole","related_entry":"TI-2026-10-11-001","related_cves":["CVE-2026-104286"],"confidence":"high"},{"value":"/data/bin/mailservice","related_entry":"TI-2026-10-11-001","related_cves":["CVE-2026-104286"],"confidence":"high"},{"value":"/bin/smit","related_entry":"TI-2026-10-11-001","related_cves":["CVE-2026-104286"],"confidence":"high"},{"value":"/data/etc/httpd.conf","related_entry":"TI-2026-10-11-001","related_cves":["CVE-2026-104286"],"confidence":"high"},{"value":"/data/migadmin.tar.gz","related_entry":"TI-2026-10-11-001","related_cves":["CVE-2026-104286"],"confidence":"high"}],"function_name":[{"value":"checkSysPwd","related_entry":"TI-2026-10-11-002","related_cves":["CVE-2026-105133","CVE-2026-105134"],"confidence":"high"}],"geolocation":[{"value":"Xiamen, China","related_entry":"TI-2026-10-11-005","related_cves":["CVE-2015-3306","CVE-2023-22894","CVE-2021-3199","CVE-2016-3081","CVE-2015-5477"],"confidence":"low"}],"internal_target":[{"value":"127.0.0.1:5984","related_entry":"TI-2026-10-11-004","related_cves":["CVE-2026-102255"],"confidence":"medium"}],"ipv4":[{"value":"79.141.169.187","related_entry":"TI-2026-10-11-001","related_cves":["CVE-2026-104286"],"confidence":"medium"},{"value":"45.129.0.192","related_entry":"TI-2026-10-11-001","related_cves":["CVE-2026-104286"],"confidence":"medium"}],"malware":[{"value":"WHIPSHOT","related_entry":"TI-2026-10-11-007","related_cves":["CVE-2026-88779"],"confidence":"medium"},{"value":"SLAPSHOT","related_entry":"TI-2026-10-11-007","related_cves":["CVE-2026-88779"],"confidence":"medium"}],"port":[{"value":"8029/tcp","related_entry":"TI-2026-10-11-002","related_cves":["CVE-2026-105133","CVE-2026-105134"],"confidence":"medium"}],"service_name":[{"value":"MicrosoftEdgeUpdateSvc","related_entry":"TI-2026-10-11-002","related_cves":["CVE-2026-105133","CVE-2026-105134"],"confidence":"high"}],"stix_package":[{"value":"AA26-281A STIX JSON / STIX XML indicator files (published on the CISA advisory page)","related_entry":"TI-2026-10-11-005","related_cves":["CVE-2015-3306","CVE-2023-22894","CVE-2021-3199","CVE-2016-3081","CVE-2015-5477"],"confidence":"high"}],"target_file":[{"value":"WEB-INF/classes/dbconfig.xml","related_entry":"TI-2026-10-11-003","related_cves":["CVE-2026-21589"],"confidence":"high"}],"timestamp":[{"value":"2026-10-07T23:20:15Z","related_entry":"TI-2026-10-11-002","related_cves":["CVE-2026-105133","CVE-2026-105134"],"confidence":"high"},{"value":"2026-10-06","related_entry":"TI-2026-10-11-003","related_cves":["CVE-2026-21589"],"confidence":"medium"},{"value":"2026-07-23","related_entry":"TI-2026-10-11-008","related_cves":["CVE-2026-93616","CVE-2026-85102"],"confidence":"high"},{"value":"2026-09-12","related_entry":"TI-2026-10-11-008","related_cves":["CVE-2026-93616","CVE-2026-85102"],"confidence":"high"}],"ttp":[{"value":"SoftEther VPN client renamed to impersonate legitimate Windows binaries","related_entry":"TI-2026-10-11-005","related_cves":["CVE-2015-3306","CVE-2023-22894","CVE-2021-3199","CVE-2016-3081","CVE-2015-5477"],"confidence":"medium"},{"value":"Password spraying against Exchange; credential-harvesting pages","related_entry":"TI-2026-10-11-005","related_cves":["CVE-2015-3306","CVE-2023-22894","CVE-2021-3199","CVE-2016-3081","CVE-2015-5477"],"confidence":"medium"},{"value":"DCSync credential harvesting and mailbox collection","related_entry":"TI-2026-10-11-005","related_cves":["CVE-2015-3306","CVE-2023-22894","CVE-2021-3199","CVE-2016-3081","CVE-2015-5477"],"confidence":"medium"}],"uri_path":[{"value":"/UpdateReceivers.do","related_entry":"TI-2026-10-11-002","related_cves":["CVE-2026-105133","CVE-2026-105134"],"confidence":"high"}]},"summary_statistics":{"total_entries":10,"actively_exploited":7,"kev_listed":5,"no_patch_available":1,"partial_patch_available":1,"total_cves_referenced":41,"total_kql_queries":28,"total_iocs":48,"kev_deadlines_passed_or_due":["2026-09-25","2026-10-03","2026-10-04","2026-10-07","2026-10-11"],"highest_priority_action":"KEV due date 2026-10-11 (today) for the five AA26-281A / Flax Typhoon legacy CVEs; and no patch exists for the actively exploited AhsayCBS chain - remove it from the internet."}}</script>
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- labels ---------- */
+  var STATUS = {
+    exploited_in_the_wild:                     {short:"Exploited",        full:"Exploited in the wild",                  cls:"st-exploited", seg:"s-exploited"},
+    exploitation_attempts_reported_unconfirmed:{short:"Attempts seen",    full:"Exploitation attempts reported (unconfirmed)", cls:"st-attempts", seg:"s-attempts"},
+    public_poc_available:                      {short:"Public PoC",       full:"Public PoC available",                   cls:"st-attempts", seg:"s-attempts"},
+    no_known_exploitation:                     {short:"No known exploit", full:"No known exploitation",                   cls:"st-none",      seg:"s-none"}
+  };
+  var PATCH = {yes:null, partial:{t:"Partial patch",cls:"partial"}, no:{t:"No patch",cls:"nopatch"}};
+  var PLATFORM = {sentinel:"Sentinel", defender_xdr:"Defender XDR"};
+  var CATEGORY = {vulnerability:"Vulnerability", vulnerability_bundle:"Vulnerability bundle",
+                  threat_actor_campaign:"Threat actor campaign", incident:"Incident"};
+
+  /* ---------- dom helpers (textContent only - no HTML injection) ---------- */
+  function el(tag, cls, text){
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined && text !== null && text !== "") n.textContent = String(text);
+    return n;
+  }
+  function kv(dl, key, val, accent){
+    var d = el("div"), dt = el("dt", null, key), dd = el("dd");
+    if (accent){ var b = el("b", null, val); dd.appendChild(b); } else { dd.textContent = val; }
+    d.appendChild(dt); d.appendChild(dd); dl.appendChild(d); return d;
+  }
+  function sec(title){
+    var s = el("section","sec"); s.appendChild(el("h3", null, title)); return s;
+  }
+  function fmtDate(iso){
+    if (!iso) return "—";
+    var d = new Date(iso);
+    if (isNaN(d)) return String(iso);
+    var day = String(d.getUTCDate()).padStart(2,"0");
+    var mon = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getUTCMonth()];
+    var out = day + " " + mon + " " + d.getUTCFullYear();
+    if (String(iso).indexOf("T") > -1){
+      out += " " + String(d.getUTCHours()).padStart(2,"0") + ":" + String(d.getUTCMinutes()).padStart(2,"0") + "Z";
+    }
+    return out;
+  }
+  function label(s){
+    if (!s) return "—";
+    return String(s).replace(/_/g," ").replace(/^./, function(c){return c.toUpperCase();});
+  }
+
+  /* ---------- minimal KQL highlighter (safe: builds text nodes only) ---------- */
+  var KQL_KW = ("let|where|project|summarize|extend|sort|order|by|join|union|take|limit|distinct|"
+    + "count|dcount|countif|sum|make_set|make_list|min|max|any|avg|bin|ago|now|datetime|dynamic|"
+    + "todouble|tostring|toint|tolong|strcat|strlen|extract|extract_all|parse_json|coalesce|"
+    + "set_intersection|isnotempty|isempty|has|has_any|has_all|has_cs|contains|startswith|"
+    + "endswith|in|and|or|not|asc|desc|on|datetime_part|dayofweek|column_ifexists|"
+    + "ipv4_is_in_any_range|iff|case|print|top").split("|");
+  var KQL_RE = new RegExp("(//[^\\n]*)|(\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*')|\\b("
+    + KQL_KW.join("|") + ")\\b", "g");
+  function highlight(code){
+    var frag = document.createDocumentFragment(), last = 0, m;
+    KQL_RE.lastIndex = 0;
+    while ((m = KQL_RE.exec(code)) !== null){
+      if (m.index > last) frag.appendChild(document.createTextNode(code.slice(last, m.index)));
+      var span = el("span", m[1] ? "c" : (m[2] ? "s" : "k"), m[0]);
+      frag.appendChild(span);
+      last = m.index + m[0].length;
+    }
+    if (last < code.length) frag.appendChild(document.createTextNode(code.slice(last)));
+    return frag;
+  }
+
+  function copyBtn(getText, labelText){
+    var b = el("button","copy", labelText || "Copy");
+    b.type = "button";
+    b.addEventListener("click", function(ev){
+      ev.stopPropagation();
+      var txt = getText();
+      function done(){
+        var old = b.textContent;
+        b.textContent = "Copied"; b.classList.add("ok");
+        setTimeout(function(){ b.textContent = old; b.classList.remove("ok"); }, 1400);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(txt).then(done, function(){ fallback(txt, done); });
+      } else { fallback(txt, done); }
+    });
+    return b;
+  }
+  function fallback(txt, done){
+    var ta = el("textarea"); ta.value = txt;
+    ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); done(); } catch(e){ /* clipboard unavailable */ }
+    document.body.removeChild(ta);
+  }
+
+  /* ---------- state ---------- */
+  var DATA = null, FILTER = {q:"", status:"all", kev:false, nopatch:false}, ALL_OPEN = false;
+
+  /* ---------- render: masthead / tiles / posture ---------- */
+  function renderHead(){
+    var r = DATA.report || {}, w = r.coverage_window || {};
+    document.getElementById("feed-name").textContent = DATA.feed_name || "Threat Intelligence Brief";
+    document.getElementById("feed-sub").textContent =
+      (DATA.feed_id ? DATA.feed_id : "") + (DATA.schema_version ? "  ·  schema v" + DATA.schema_version : "");
+    document.title = (DATA.feed_name || "Threat Intelligence Brief") + " — " + (r.check_performed_at_local || "");
+
+    var dl = document.getElementById("stamp"); dl.textContent = "";
+    kv(dl, "Check performed", fmtDate(r.check_performed_at), true);
+    kv(dl, "Coverage window", fmtDate(w.start) + " → " + fmtDate(w.end));
+    if (w.duration_hours) kv(dl, "Window", w.duration_hours + " hours");
+    if (r.next_check_due) kv(dl, "Next check due", fmtDate(r.next_check_due));
+
+    var fm = [];
+    if (r.generated_by) fm.push("Generated by " + r.generated_by);
+    if (DATA.collection_metadata && DATA.collection_metadata.collection_method)
+      fm.push(DATA.collection_metadata.collection_method);
+    document.getElementById("foot-meta").textContent = fm.join("  ·  ");
+
+    var slot = document.getElementById("alert-slot"); slot.textContent = "";
+    var st = DATA.summary_statistics || {};
+    if (st.highest_priority_action){
+      var a = el("div","alert");
+      var svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
+      svg.setAttribute("width","17"); svg.setAttribute("height","17");
+      svg.setAttribute("viewBox","0 0 16 16"); svg.setAttribute("fill","none");
+      svg.setAttribute("aria-hidden","true");
+      var p1 = document.createElementNS("http://www.w3.org/2000/svg","path");
+      p1.setAttribute("d","M8 1.6 15 14H1L8 1.6Z");
+      p1.setAttribute("stroke","#FF5A1F"); p1.setAttribute("stroke-width","1.5");
+      p1.setAttribute("stroke-linejoin","round");
+      var p2 = document.createElementNS("http://www.w3.org/2000/svg","path");
+      p2.setAttribute("d","M8 6v3.2"); p2.setAttribute("stroke","#FF5A1F");
+      p2.setAttribute("stroke-width","1.7"); p2.setAttribute("stroke-linecap","round");
+      var c = document.createElementNS("http://www.w3.org/2000/svg","circle");
+      c.setAttribute("cx","8"); c.setAttribute("cy","11.6"); c.setAttribute("r",".95");
+      c.setAttribute("fill","#FF5A1F");
+      svg.appendChild(p1); svg.appendChild(p2); svg.appendChild(c);
+      var box = el("div");
+      box.appendChild(el("p","lbl","Highest priority action"));
+      box.appendChild(el("p", null, st.highest_priority_action));
+      if (st.kev_deadlines_passed_or_due && st.kev_deadlines_passed_or_due.length){
+        var d = el("p", null, "KEV deadlines in scope: " + st.kev_deadlines_passed_or_due.join(", "));
+        d.style.marginTop = "7px"; d.style.fontSize = "13px"; d.style.color = "var(--muted)";
+        d.style.fontFamily = "var(--mono)";
+        box.appendChild(d);
+      }
+      a.appendChild(svg); a.appendChild(box); slot.appendChild(a);
+    }
+  }
+
+  function renderTiles(){
+    var st = DATA.summary_statistics || {}, v = DATA.vulnerabilities || [];
+    var defs = [
+      ["Entries", st.total_entries != null ? st.total_entries : v.length, ""],
+      ["Actively exploited", st.actively_exploited, "hot"],
+      ["KEV listed", st.kev_listed, "warn"],
+      ["No patch", st.no_patch_available, "hot"],
+      ["Partial patch", st.partial_patch_available, "warn"],
+      ["CVEs tracked", st.total_cves_referenced, ""],
+      ["KQL queries", st.total_kql_queries, ""],
+      ["IOCs", st.total_iocs, ""]
+    ];
+    var box = document.getElementById("tiles"); box.textContent = "";
+    defs.forEach(function(d){
+      if (d[1] === undefined || d[1] === null) return;
+      var t = el("div","tile" + (d[2] ? " " + d[2] : ""));
+      t.appendChild(el("span","n", d[1]));
+      t.appendChild(el("span","k", d[0]));
+      box.appendChild(t);
+    });
+  }
+
+  function renderPosture(){
+    var v = DATA.vulnerabilities || [];
+    var order = ["exploited_in_the_wild","exploitation_attempts_reported_unconfirmed",
+                 "public_poc_available","no_known_exploitation"];
+    var counts = {};
+    v.forEach(function(e){ counts[e.exploitation_status] = (counts[e.exploitation_status]||0) + 1; });
+    var present = order.filter(function(k){ return counts[k]; });
+    var box = document.getElementById("posture"); box.textContent = "";
+    if (!present.length || !v.length){ box.hidden = true; return; }
+    box.hidden = false;
+    box.appendChild(el("h2", null, "Exploitation posture across " + v.length + " entries"));
+    var bar = el("div","pbar");
+    present.forEach(function(k){
+      var s = el("div","pseg " + STATUS[k].seg);
+      s.style.flex = counts[k];
+      s.setAttribute("title", STATUS[k].full + ": " + counts[k]);
+      bar.appendChild(s);
+    });
+    box.appendChild(bar);
+    var lg = el("div","plegend");
+    present.forEach(function(k){
+      var s = el("span");
+      s.appendChild(el("i","swatch " + STATUS[k].seg));
+      s.appendChild(el("b", null, counts[k]));
+      s.appendChild(document.createTextNode(STATUS[k].full));
+      lg.appendChild(s);
+    });
+    box.appendChild(lg);
+  }
+
+  /* ---------- render: one entry ---------- */
+  function renderEntry(e){
+    var li = el("li","card");
+    li.setAttribute("data-status", e.exploitation_status || "");
+
+    /* header (button for keyboard access) */
+    var head = el("button","chead");
+    head.type = "button";
+    head.setAttribute("aria-expanded","false");
+    head.appendChild(el("div","rank", e.rank != null ? e.rank : "·"));
+
+    var body = el("div","cbody");
+    body.appendChild(el("h2","ctitle", e.title || "Untitled"));
+
+    var meta = el("div","meta");
+    var S = STATUS[e.exploitation_status];
+    if (S) meta.appendChild(el("span","pill " + S.cls, S.short));
+    if (e.kev_listed) meta.appendChild(el("span","pill kev",
+      "KEV" + (e.kev_due_date ? " · due " + e.kev_due_date : "")));
+    var P = PATCH[e.patch_available];
+    if (P) meta.appendChild(el("span","pill " + P.cls, P.t));
+    if (e.severity) meta.appendChild(el("span","pill plain",
+      label(e.severity) + (e.cvss_v3 != null ? " · CVSS " + e.cvss_v3 : "")));
+    if (e.vendor) meta.appendChild(el("span","pill plain", e.vendor));
+    (e.cve_ids || []).slice(0,4).forEach(function(c){ meta.appendChild(el("span","cve", c)); });
+    if ((e.cve_ids || []).length > 4)
+      meta.appendChild(el("span","cve more", "+" + (e.cve_ids.length - 4) + " more"));
+    body.appendChild(meta);
+    if (e.summary) body.appendChild(el("p","teaser", e.summary));
+    head.appendChild(body);
+
+    var caret = document.createElementNS("http://www.w3.org/2000/svg","svg");
+    caret.setAttribute("class","caret"); caret.setAttribute("width","11");
+    caret.setAttribute("height","11"); caret.setAttribute("viewBox","0 0 12 12");
+    caret.setAttribute("fill","none"); caret.setAttribute("aria-hidden","true");
+    var cp = document.createElementNS("http://www.w3.org/2000/svg","path");
+    cp.setAttribute("d","m3 1 5 5-5 5"); cp.setAttribute("stroke","currentColor");
+    cp.setAttribute("stroke-width","1.8"); cp.setAttribute("stroke-linecap","round");
+    cp.setAttribute("stroke-linejoin","round");
+    caret.appendChild(cp); head.appendChild(caret);
+    li.appendChild(head);
+
+    /* detail */
+    var det = el("div","detail");
+
+    var facts = sec("At a glance");
+    var fl = el("dl","facts");
+    if (e.id) kv(fl, "Entry ID", e.id);
+    if (e.category) kv(fl, "Category", CATEGORY[e.category] || label(e.category));
+    if (S) kv(fl, "Exploitation", S.full);
+    kv(fl, "Patch available", label(e.patch_available));
+    if (e.first_reported) kv(fl, "First reported", e.first_reported);
+    if (e.last_updated) kv(fl, "Last updated", e.last_updated);
+    if (e.confidence) kv(fl, "Entry confidence", label(e.confidence));
+    if (e.kev_due_date) kv(fl, "KEV due date", e.kev_due_date);
+    facts.appendChild(fl);
+    det.appendChild(facts);
+
+    if (e.summary){
+      var s1 = sec("Analyst summary");
+      s1.appendChild(el("p","prose", e.summary));
+      det.appendChild(s1);
+    }
+    if ((e.affected_products || []).length){
+      var s2 = sec("Affected products");
+      var u2 = el("ul","list");
+      e.affected_products.forEach(function(p){ u2.appendChild(el("li", null, p)); });
+      s2.appendChild(u2); det.appendChild(s2);
+    }
+    if ((e.recommended_actions || []).length){
+      var s3 = sec("Recommended actions");
+      var u3 = el("ul","list num");
+      e.recommended_actions.forEach(function(a){ u3.appendChild(el("li", null, a)); });
+      s3.appendChild(u3); det.appendChild(s3);
+    }
+
+    /* KQL */
+    if ((e.kql || []).length){
+      var s4 = sec("Detection — KQL for Sentinel / Defender XDR (" + e.kql.length + ")");
+      e.kql.forEach(function(q){
+        var box = el("div","kql"), h = el("div","kql-head");
+        var kn = el("div","kn");
+        kn.appendChild(el("h4", null, q.name || "Query"));
+        if (q.description) kn.appendChild(el("p", null, q.description));
+        h.appendChild(kn);
+        var plat = el("span","plat",
+          (PLATFORM[q.platform] || q.platform || "") + (q.table ? " · " + q.table : ""));
+        h.appendChild(plat);
+        h.appendChild(copyBtn(function(){ return q.query || ""; }, "Copy KQL"));
+        box.appendChild(h);
+        var pre = el("pre"), code = el("code");
+        code.appendChild(highlight(q.query || ""));
+        pre.appendChild(code); box.appendChild(pre);
+        s4.appendChild(box);
+      });
+      det.appendChild(s4);
+    }
+
+    /* IOCs */
+    var iocs = e.iocs || [];
+    if (iocs.length){
+      var real = iocs.filter(function(i){ return i.type !== "note"; });
+      var notes = iocs.filter(function(i){ return i.type === "note"; });
+      var s5 = sec("Indicators of compromise (" + real.length + ")");
+      if (real.length){
+        s5.querySelector("h3").appendChild(copyBtn(function(){
+          return real.map(function(i){ return i.value; }).join("\n");
+        }, "Copy values"));
+      }
+      notes.forEach(function(n){
+        var np = el("p","note-row", "⚠ " + n.context);
+        np.style.margin = "0 0 13px"; s5.appendChild(np);
+      });
+      if (real.length){
+        var wrap = el("div","tbl-wrap"), tb = el("table");
+        var thead = el("thead"), tr = el("tr");
+        ["Type","Value","Confidence","Context","Source"].forEach(function(h2){
+          tr.appendChild(el("th", null, h2));
+        });
+        thead.appendChild(tr); tb.appendChild(thead);
+        var tbody = el("tbody");
+        real.forEach(function(i){
+          var r = el("tr");
+          r.appendChild(el("td","t", i.type));
+          r.appendChild(el("td","v", i.value));
+          var cd = el("td");
+          cd.appendChild(el("span","cf " + (i.confidence || "low"), i.confidence || "—"));
+          r.appendChild(cd);
+          r.appendChild(el("td","ctx", i.context || "—"));
+          r.appendChild(el("td","src", i.source || "—"));
+          tbody.appendChild(r);
+        });
+        tb.appendChild(tbody); wrap.appendChild(tb); s5.appendChild(wrap);
+      }
+      det.appendChild(s5);
+    }
+
+    if ((e.references || []).length){
+      var s6 = sec("References");
+      var u6 = el("ul","refs");
+      e.references.forEach(function(r){
+        var li6 = el("li"), a = el("a", null, r);
+        a.href = r; a.target = "_blank"; a.rel = "noopener noreferrer";
+        li6.appendChild(a); u6.appendChild(li6);
+      });
+      s6.appendChild(u6); det.appendChild(s6);
+    }
+
+    li.appendChild(det);
+
+    head.addEventListener("click", function(){
+      var open = li.classList.toggle("is-open");
+      head.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+    return li;
+  }
+
+  /* ---------- filtering ---------- */
+  function haystack(e){
+    var parts = [e.title, e.summary, e.vendor, e.id, e.category, e.severity, e.exploitation_status];
+    parts = parts.concat(e.cve_ids || [], e.affected_products || [], e.recommended_actions || []);
+    (e.iocs || []).forEach(function(i){ parts.push(i.value, i.type, i.context); });
+    (e.kql || []).forEach(function(q){ parts.push(q.name, q.table, q.description); });
+    return parts.filter(Boolean).join(" ").toLowerCase();
+  }
+
+  function apply(){
+    var v = DATA.vulnerabilities || [];
+    var q = FILTER.q.trim().toLowerCase();
+    var shown = 0;
+    var list = document.getElementById("entries");
+    Array.prototype.forEach.call(list.children, function(li, idx){
+      var e = v[idx], ok = true;
+      if (FILTER.status !== "all" && e.exploitation_status !== FILTER.status) ok = false;
+      if (ok && FILTER.kev && !e.kev_listed) ok = false;
+      if (ok && FILTER.nopatch && e.patch_available === "yes") ok = false;
+      if (ok && q && li._hay.indexOf(q) === -1) ok = false;
+      li.hidden = !ok;
+      if (ok) shown++;
+    });
+    document.getElementById("count").textContent = shown + " of " + v.length + " shown";
+    document.getElementById("empty").hidden = shown !== 0;
+  }
+
+  function renderChips(){
+    var v = DATA.vulnerabilities || [];
+    var order = ["exploited_in_the_wild","exploitation_attempts_reported_unconfirmed",
+                 "public_poc_available","no_known_exploitation"];
+    var counts = {};
+    v.forEach(function(e){ counts[e.exploitation_status] = (counts[e.exploitation_status]||0)+1; });
+    var box = document.getElementById("status-chips"); box.textContent = "";
+    var defs = [["all","All",v.length]];
+    order.forEach(function(k){ if (counts[k]) defs.push([k, STATUS[k].short, counts[k]]); });
+    defs.forEach(function(d){
+      var b = el("button","chip", d[1] + " (" + d[2] + ")");
+      b.type = "button";
+      b.setAttribute("aria-pressed", FILTER.status === d[0] ? "true" : "false");
+      b.addEventListener("click", function(){
+        FILTER.status = d[0];
+        Array.prototype.forEach.call(box.children, function(c){ c.setAttribute("aria-pressed","false"); });
+        b.setAttribute("aria-pressed","true");
+        apply();
+      });
+      box.appendChild(b);
+    });
+  }
+
+  /* ---------- provenance ---------- */
+  function renderProv(){
+    var cm = DATA.collection_metadata || {};
+    var box = document.getElementById("prov-body"); box.textContent = "";
+    if (cm.collection_method){
+      box.appendChild(el("h4", null, "Collection method"));
+      box.appendChild(el("p","prose", cm.collection_method));
+    }
+    if ((cm.limitations || []).length){
+      box.appendChild(el("h4", null, "Limitations"));
+      var u = el("ul","list");
+      cm.limitations.forEach(function(l){ u.appendChild(el("li", null, l)); });
+      box.appendChild(u);
+    }
+    if (cm.confidence_legend){
+      box.appendChild(el("h4", null, "Confidence legend"));
+      var dl = el("dl");
+      Object.keys(cm.confidence_legend).forEach(function(k){
+        dl.appendChild(el("dt", null, k));
+        dl.appendChild(el("dd", null, cm.confidence_legend[k]));
+      });
+      box.appendChild(dl);
+    }
+    var w = (DATA.report || {}).coverage_window || {};
+    if (w.note){
+      box.appendChild(el("h4", null, "Coverage window note"));
+      box.appendChild(el("p","prose", w.note));
+    }
+    if ((cm.ioc_types_present || []).length){
+      box.appendChild(el("h4", null, "IOC types present"));
+      box.appendChild(el("p","prose", cm.ioc_types_present.join(", ")));
+    }
+  }
+
+  /* ---------- boot ---------- */
+  function render(data){
+    DATA = data;
+    renderHead(); renderTiles(); renderPosture(); renderChips(); renderProv();
+    var list = document.getElementById("entries"); list.textContent = "";
+    (DATA.vulnerabilities || []).forEach(function(e){
+      var li = renderEntry(e);
+      li._hay = haystack(e);
+      list.appendChild(li);
+    });
+    ALL_OPEN = false;
+    document.getElementById("toggle-all").textContent = "Expand all";
+    apply();
+  }
+
+  document.getElementById("q").addEventListener("input", function(ev){
+    FILTER.q = ev.target.value; apply();
+  });
+  ["f-kev","f-nopatch"].forEach(function(id){
+    document.getElementById(id).addEventListener("click", function(){
+      var b = document.getElementById(id);
+      var on = b.getAttribute("aria-pressed") !== "true";
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+      FILTER[id === "f-kev" ? "kev" : "nopatch"] = on;
+      apply();
+    });
+  });
+  document.getElementById("toggle-all").addEventListener("click", function(){
+    ALL_OPEN = !ALL_OPEN;
+    var list = document.getElementById("entries");
+    Array.prototype.forEach.call(list.children, function(li){
+      li.classList.toggle("is-open", ALL_OPEN);
+      var h = li.querySelector(".chead");
+      if (h) h.setAttribute("aria-expanded", ALL_OPEN ? "true" : "false");
+    });
+    this.textContent = ALL_OPEN ? "Collapse all" : "Expand all";
+  });
+
+  /* drag & drop any TI JSON */
+  var dragDepth = 0;
+  window.addEventListener("dragenter", function(ev){ ev.preventDefault(); if (++dragDepth) document.body.classList.add("dragging"); });
+  window.addEventListener("dragover",  function(ev){ ev.preventDefault(); });
+  window.addEventListener("dragleave", function(){ if (--dragDepth <= 0){ dragDepth = 0; document.body.classList.remove("dragging"); } });
+  window.addEventListener("drop", function(ev){
+    ev.preventDefault(); dragDepth = 0; document.body.classList.remove("dragging");
+    var f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+    if (!f) return;
+    var fr = new FileReader();
+    fr.onload = function(){
+      try {
+        var parsed = JSON.parse(fr.result);
+        if (!parsed || !parsed.vulnerabilities) throw new Error("not a TI output config");
+        render(parsed);
+        window.scrollTo(0,0);
+      } catch(err){
+        alert("Could not load that file: " + err.message);
+      }
+    };
+    fr.readAsText(f);
+  });
+
+  /* embedded data first (works offline from file://); refresh from the sibling
+     JSON when served over http(s) so a hosted copy always shows today's feed */
+  var embedded = null;
+  try { embedded = JSON.parse(document.getElementById("ti-data").textContent); } catch(e){}
+  if (embedded && embedded.vulnerabilities) render(embedded);
+
+  if (location.protocol === "http:" || location.protocol === "https:"){
+    fetch("ti-output-config.json", {cache:"no-store"}).then(function(r){
+      return r.ok ? r.json() : null;
+    }).then(function(j){
+      if (j && j.vulnerabilities){
+        var a = (j.report||{}).check_performed_at, b = (embedded&&embedded.report||{}).check_performed_at;
+        if (a !== b) render(j);
+      }
+    }).catch(function(){ /* offline or no sibling file - embedded copy stands */ });
+  }
+})();
+</script>
+</body>
+</html>

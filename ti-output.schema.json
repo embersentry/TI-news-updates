@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ti-output.schema.json",
+  "title": "TI Daily Top-10 Output Config",
+  "description": "Machine-readable daily threat intelligence output: check date, ranked top-10 vulnerabilities/incidents, each with a detailed summary, Sentinel/Defender KQL hunting queries, and IOCs.",
+  "type": "object",
+  "required": ["schema_version", "report", "vulnerabilities"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": { "type": "string" },
+    "feed_id": { "type": "string" },
+    "feed_name": { "type": "string" },
+    "report": {
+      "type": "object",
+      "required": ["check_performed_at", "coverage_window", "entry_count"],
+      "properties": {
+        "check_performed_at": { "type": "string", "format": "date-time", "description": "When this TI check was performed (UTC)." },
+        "check_performed_at_local": { "type": "string" },
+        "timezone": { "type": "string" },
+        "coverage_window": {
+          "type": "object",
+          "required": ["start", "end"],
+          "properties": {
+            "start": { "type": "string", "format": "date-time" },
+            "end": { "type": "string", "format": "date-time" },
+            "duration_hours": { "type": "number" },
+            "note": { "type": "string" }
+          }
+        },
+        "entry_count": { "type": "integer", "minimum": 0 },
+        "generated_by": { "type": "string" },
+        "next_check_due": { "type": "string", "format": "date-time" }
+      }
+    },
+    "collection_metadata": {
+      "type": "object",
+      "properties": {
+        "collection_method": { "type": "string" },
+        "limitations": { "type": "array", "items": { "type": "string" } },
+        "confidence_legend": { "type": "object" },
+        "exploitation_status_values": { "type": "array", "items": { "type": "string" } },
+        "kql_platform_values": { "type": "array", "items": { "type": "string" } },
+        "ioc_types_present": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "vulnerabilities": {
+      "type": "array",
+      "description": "Ranked list, rank 1 = highest priority.",
+      "items": { "$ref": "#/$defs/entry" }
+    },
+    "ioc_index": {
+      "type": "object",
+      "description": "All IOCs regrouped by type for bulk ingestion, each carrying back-references to its source entry.",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["value", "related_entry"],
+          "properties": {
+            "value": { "type": "string" },
+            "related_entry": { "type": "string" },
+            "related_cves": { "type": "array", "items": { "type": "string" } },
+            "confidence": { "$ref": "#/$defs/confidence" }
+          }
+        }
+      }
+    },
+    "summary_statistics": { "type": "object" }
+  },
+  "$defs": {
+    "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+    "entry": {
+      "type": "object",
+      "required": ["rank", "id", "title", "summary", "cve_ids", "exploitation_status", "kql", "iocs"],
+      "additionalProperties": true,
+      "properties": {
+        "rank": { "type": "integer", "minimum": 1 },
+        "id": { "type": "string", "description": "Stable per-report entry identifier." },
+        "title": { "type": "string", "description": "Title of the vulnerability or cyber incident." },
+        "cve_ids": { "type": "array", "items": { "type": "string", "pattern": "^CVE-[0-9]{4}-[0-9]{4,}$" } },
+        "vendor": { "type": "string" },
+        "affected_products": { "type": "array", "items": { "type": "string" } },
+        "category": { "type": "string", "enum": ["vulnerability", "vulnerability_bundle", "threat_actor_campaign", "incident"] },
+        "cvss_v3": { "type": ["number", "null"], "minimum": 0, "maximum": 10 },
+        "severity": { "type": "string", "enum": ["critical", "high", "medium", "low", "informational"] },
+        "exploitation_status": {
+          "type": "string",
+          "enum": ["exploited_in_the_wild", "exploitation_attempts_reported_unconfirmed", "public_poc_available", "no_known_exploitation"]
+        },
+        "kev_listed": { "type": "boolean" },
+        "kev_due_date": { "type": ["string", "null"], "format": "date" },
+        "patch_available": { "type": "string", "enum": ["yes", "no", "partial"] },
+        "first_reported": { "type": "string", "format": "date" },
+        "last_updated": { "type": "string", "format": "date" },
+        "confidence": { "$ref": "#/$defs/confidence" },
+        "summary": { "type": "string", "description": "Detailed analyst summary of the vulnerability or incident." },
+        "recommended_actions": { "type": "array", "items": { "type": "string" } },
+        "kql": {
+          "type": "array",
+          "description": "KQL hunting queries for Microsoft Sentinel / Defender XDR. Untested - validate and tune before use as analytics rules.",
+          "items": {
+            "type": "object",
+            "required": ["platform", "name", "query"],
+            "properties": {
+              "platform": { "type": "string", "enum": ["sentinel", "defender_xdr"] },
+              "table": { "type": "string", "description": "Primary table the query targets." },
+              "name": { "type": "string" },
+              "description": { "type": "string" },
+              "query": { "type": "string", "description": "KQL source. Newline-delimited." }
+            }
+          }
+        },
+        "iocs": {
+          "type": "array",
+          "description": "Indicators for this entry. type 'note' entries are provenance statements, not indicators - filter them out before ingestion.",
+          "items": {
+            "type": "object",
+            "required": ["type", "value", "context", "confidence"],
+            "properties": {
+              "type": { "type": "string", "description": "e.g. ipv4, domain, sha256, filename, filepath, service_name, uri_path, port, account, behaviour, ttp, malware, note." },
+              "value": { "type": "string" },
+              "context": { "type": "string" },
+              "confidence": { "$ref": "#/$defs/confidence" },
+              "source": { "type": "string" }
+            }
+          }
+        },
+        "references": { "type": "array", "items": { "type": "string", "format": "uri" } }
+      }
+    }
+  }
+}
