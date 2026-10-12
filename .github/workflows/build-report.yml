@@ -1,0 +1,171 @@
+name: Build TI report
+
+# Renders a dated HTML report from ti-output-config.json + report-template.html,
+# one per run: reports/ti-report-<YYYY-MM-DD>.html, dated in Europe/London.
+#
+# Previous reports are never overwritten, so the directory accumulates a daily
+# archive. ti-report.html in the repo root is refreshed with the same bytes on
+# every run, giving a stable path that always holds the newest report.
+#
+# This re-renders existing data. Nothing here fetches threat intelligence or
+# modifies report.check_performed_at - ti-output-config.json is maintained by a
+# separate process.
+
+on:
+  schedule:
+    # GitHub's cron is UTC-only and has no DST awareness, so both candidate
+    # times are registered and the guard job drops whichever is wrong for the
+    # current UK offset. Net effect: 11:30 Europe/London all year round.
+    - cron: "30 10 * * *" # 11:30 UK while on BST (UTC+1)
+    - cron: "30 11 * * *" # 11:30 UK while on GMT (UTC+0)
+  # Re-render today's report when an input changes, so it never lags the data.
+  push:
+    branches: [main]
+    paths:
+      - "ti-output-config.json"
+      - "report-template.html"
+      - "build-report.py"
+      - ".github/workflows/build-report.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-ti-report
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    name: Is this the 11:30 UK run?
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.check.outputs.proceed }}
+    steps:
+      - id: check
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          FIRED_CRON: ${{ github.event.schedule }}
+        run: |
+          set -euo pipefail
+
+          if [ "$EVENT_NAME" != "schedule" ]; then
+            echo "Triggered by '$EVENT_NAME' - no schedule guard needed."
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          offset="$(TZ=Europe/London date +%z)"
+          case "$offset" in
+            +0100) want="30 10 * * *" ; season="BST (UTC+1)" ;;
+            +0000) want="30 11 * * *" ; season="GMT (UTC+0)" ;;
+            *) echo "::error::Unexpected Europe/London UTC offset '$offset'" ; exit 1 ;;
+          esac
+
+          now_uk="$(TZ=Europe/London date '+%Y-%m-%d %H:%M %Z')"
+          if [ "$FIRED_CRON" = "$want" ]; then
+            echo "UK is on $season, so cron '$FIRED_CRON' is the live trigger. Now: $now_uk"
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "UK is on $season, so cron '$FIRED_CRON' is the off-season trigger. Skipping. Now: $now_uk"
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    name: Build dated report
+    needs: guard
+    if: needs.guard.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install schema validator
+        run: pip install --quiet jsonschema
+
+      - name: Validate config against schema
+        run: |
+          python - <<'PY'
+          import json
+          import jsonschema
+
+          with open("ti-output-config.json", encoding="utf-8") as fh:
+              cfg = json.load(fh)
+          with open("ti-output.schema.json", encoding="utf-8") as fh:
+              jsonschema.validate(cfg, json.load(fh))
+
+          report = cfg["report"]
+          print(f"config valid: {len(cfg['vulnerabilities'])} entries, "
+                f"check performed {report['check_performed_at']}")
+          PY
+
+      - name: Work out today's report name
+        id: name
+        run: |
+          set -euo pipefail
+          # Dated in Europe/London so the filename matches the UK run day, not UTC.
+          run_date="$(TZ=Europe/London date +%F)"
+          echo "run_date=${run_date}" >> "$GITHUB_OUTPUT"
+          echo "path=reports/ti-report-${run_date}.html" >> "$GITHUB_OUTPUT"
+          echo "Building report for ${run_date}."
+
+      - name: Build dated report and refresh latest
+        env:
+          OUT: ${{ steps.name.outputs.path }}
+        run: |
+          set -euo pipefail
+          python3 build-report.py ti-output-config.json "$OUT"
+          # Copy rather than rebuild, so the stable path is byte-identical to
+          # the dated one it mirrors.
+          cp -- "$OUT" ti-report.html
+          echo "ti-report.html now mirrors ${OUT}"
+
+      - name: Commit the dated report
+        env:
+          OUT: ${{ steps.name.outputs.path }}
+          RUN_DATE: ${{ steps.name.outputs.run_date }}
+        run: |
+          set -euo pipefail
+
+          git add -- "$OUT" ti-report.html
+
+          # New dated file, or same day rebuilt after a config change. If neither,
+          # today's report already matches the config and there is nothing to do.
+          if git diff --cached --quiet -- "$OUT" ti-report.html; then
+            echo "${OUT} and ti-report.html already up to date - nothing to commit."
+            echo "No change: \`${OUT}\` already matched the current config." \
+              >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          check_date="$(python3 -c "import json;print(json.load(open('ti-output-config.json'))['report']['check_performed_at'])")"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Add TI report for ${RUN_DATE}" \
+                     -m "Adds ${OUT} and refreshes ti-report.html to match. Rendered from ti-output-config.json (check performed ${check_date}) by the Build TI report workflow."
+
+          # main can move between checkout and push; rebase and retry a few times.
+          for attempt in 1 2 3; do
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              echo "Published \`${OUT}\` and refreshed \`ti-report.html\` (TI check ${check_date})." \
+                >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "Push attempt ${attempt} failed; rebasing onto the latest ${GITHUB_REF_NAME}."
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}"
+            sleep $((attempt * 5))
+          done
+
+          echo "::error::Could not push ${OUT} and ti-report.html after 3 attempts."
+          exit 1
+
+      - name: Upload report as a run artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ti-report-${{ steps.name.outputs.run_date }}
+          path: ${{ steps.name.outputs.path }}
+          if-no-files-found: error
