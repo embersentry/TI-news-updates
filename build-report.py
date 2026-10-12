@@ -3,6 +3,10 @@
 
 Usage:  python3 build-report.py [config.json] [output.html]
 
+The output path may sit in a directory that does not exist yet; it is created.
+The daily workflow uses this to write a dated report per run, e.g.
+reports/ti-report-2026-10-12.html.
+
 The viewer also accepts drag-and-dropped JSON and, when served over http(s),
 refreshes itself from a sibling ti-output-config.json - so rebuilding is only
 needed to change the baked-in default dataset.
@@ -38,6 +42,7 @@ def main() -> int:
         print(f"error: {TEMPLATE} has no {PLACEHOLDER} placeholder", file=sys.stderr)
         return 1
 
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(template.replace(PLACEHOLDER, payload), encoding="utf-8")
     print(
         f"built {out.name}  "
