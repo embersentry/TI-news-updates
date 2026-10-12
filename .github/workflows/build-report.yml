@@ -4,7 +4,8 @@ name: Build TI report
 # one per run: reports/ti-report-<YYYY-MM-DD>.html, dated in Europe/London.
 #
 # Previous reports are never overwritten, so the directory accumulates a daily
-# archive. ti-report.html in the repo root is left alone by this workflow.
+# archive. ti-report.html in the repo root is refreshed with the same bytes on
+# every run, giving a stable path that always holds the newest report.
 #
 # This re-renders existing data. Nothing here fetches threat intelligence or
 # modifies report.check_performed_at - ti-output-config.json is maintained by a
@@ -111,10 +112,16 @@ jobs:
           echo "path=reports/ti-report-${run_date}.html" >> "$GITHUB_OUTPUT"
           echo "Building report for ${run_date}."
 
-      - name: Build dated report
+      - name: Build dated report and refresh latest
         env:
           OUT: ${{ steps.name.outputs.path }}
-        run: python3 build-report.py ti-output-config.json "$OUT"
+        run: |
+          set -euo pipefail
+          python3 build-report.py ti-output-config.json "$OUT"
+          # Copy rather than rebuild, so the stable path is byte-identical to
+          # the dated one it mirrors.
+          cp -- "$OUT" ti-report.html
+          echo "ti-report.html now mirrors ${OUT}"
 
       - name: Commit the dated report
         env:
@@ -123,12 +130,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          git add -- "$OUT"
+          git add -- "$OUT" ti-report.html
 
-          # New file, or same day rebuilt after a config change. If neither, the
-          # report for today already matches the config and there is nothing to do.
-          if git diff --cached --quiet -- "$OUT"; then
-            echo "${OUT} already up to date - nothing to commit."
+          # New dated file, or same day rebuilt after a config change. If neither,
+          # today's report already matches the config and there is nothing to do.
+          if git diff --cached --quiet -- "$OUT" ti-report.html; then
+            echo "${OUT} and ti-report.html already up to date - nothing to commit."
             echo "No change: \`${OUT}\` already matched the current config." \
               >> "$GITHUB_STEP_SUMMARY"
             exit 0
@@ -139,12 +146,12 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "Add TI report for ${RUN_DATE}" \
-                     -m "Rendered from ti-output-config.json (check performed ${check_date}) by the Build TI report workflow."
+                     -m "Adds ${OUT} and refreshes ti-report.html to match. Rendered from ti-output-config.json (check performed ${check_date}) by the Build TI report workflow."
 
           # main can move between checkout and push; rebase and retry a few times.
           for attempt in 1 2 3; do
             if git push origin "HEAD:${GITHUB_REF_NAME}"; then
-              echo "Published \`${OUT}\` (TI check ${check_date})." \
+              echo "Published \`${OUT}\` and refreshed \`ti-report.html\` (TI check ${check_date})." \
                 >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
@@ -153,7 +160,7 @@ jobs:
             sleep $((attempt * 5))
           done
 
-          echo "::error::Could not push ${OUT} after 3 attempts."
+          echo "::error::Could not push ${OUT} and ti-report.html after 3 attempts."
           exit 1
 
       - name: Upload report as a run artifact
