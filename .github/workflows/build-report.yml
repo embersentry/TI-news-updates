@@ -16,8 +16,8 @@ on:
     # GitHub's cron is UTC-only and has no DST awareness, so both candidate
     # times are registered and the guard job drops whichever is wrong for the
     # current UK offset. Net effect: 11:30 Europe/London all year round.
-    - cron: "30 10 * * *" # 11:30 UK while on BST (UTC+1)
-    - cron: "30 11 * * *" # 11:30 UK while on GMT (UTC+0)
+    - cron: "30 13 * * *" # 11:30 UK while on BST (UTC+1)
+    - cron: "30 14 * * *" # 11:30 UK while on GMT (UTC+0)
   # Re-render today's report when an input changes, so it never lags the data.
   push:
     branches: [main]
