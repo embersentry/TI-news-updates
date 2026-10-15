@@ -1,0 +1,860 @@
+<!doctype html>
+<html lang="en" data-palette="#FF5A1F,#FF8C1A,#9A958C">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Threat Intelligence Brief</title>
+<meta name="description" content="Daily threat intelligence brief: ranked vulnerabilities with analyst summaries, KQL hunting queries and IOCs.">
+<style>
+  :root{
+    --bg:#0A0A0A;
+    --surface:#141414;
+    --raised:#1C1C1A;
+    --border:#2E2E2B;
+    --border-strong:#403F3A;
+    --ink:#F4F0E6;
+    --ink-dim:#C9C4B8;
+    --muted:#9A958C;
+    --accent:#FF6A1A;
+    --accent-hot:#FF5A1F;
+    --accent-soft:rgba(255,106,26,.12);
+    --accent-line:rgba(255,106,26,.32);
+    --radius:4px;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+    --sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+    --maxw:1180px;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font-family:var(--sans);font-size:15px;line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 16px}
+
+  /* ---------- masthead ---------- */
+  header.mast{border-bottom:1px solid var(--border);background:linear-gradient(180deg,#121211 0%,var(--bg) 100%)}
+  .mast-in{max-width:var(--maxw);margin:0 auto;padding:28px 16px 24px;
+    display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;justify-content:space-between}
+  .brand{display:flex;align-items:center;gap:12px;min-width:0}
+  .brand-mark{width:30px;height:30px;flex:none}
+  .brand-txt h1{margin:0;font-size:19px;font-weight:650;letter-spacing:-.01em;line-height:1.25}
+  .brand-txt p{margin:2px 0 0;font-size:12.5px;color:var(--muted);letter-spacing:.02em}
+  .stamp{display:flex;flex-wrap:wrap;gap:22px}
+  .stamp div{min-width:0}
+  .stamp dt{font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin:0 0 3px}
+  .stamp dd{margin:0;font-family:var(--mono);font-size:13px;color:var(--ink-dim);white-space:nowrap}
+  .stamp dd b{color:var(--accent);font-weight:600}
+
+  /* ---------- priority banner ---------- */
+  .alert{margin:22px 0 0;background:var(--accent-soft);border:1px solid var(--accent-line);
+    border-left:3px solid var(--accent-hot);border-radius:var(--radius);padding:14px 16px;
+    display:flex;gap:12px;align-items:flex-start}
+  .alert svg{flex:none;margin-top:2px}
+  .alert .lbl{font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--accent);
+    font-weight:650;margin:0 0 3px}
+  .alert p{margin:0;font-size:14px;color:var(--ink)}
+
+  /* ---------- stat tiles ---------- */
+  .tiles{display:grid;gap:1px;background:var(--border);border:1px solid var(--border);
+    border-radius:var(--radius);margin:22px 0 0;overflow:hidden;
+    grid-template-columns:repeat(auto-fit,minmax(132px,1fr))}
+  .tile{background:var(--surface);padding:14px 16px 13px}
+  .tile .n{font-family:var(--mono);font-size:26px;font-weight:600;line-height:1.1;letter-spacing:-.02em;
+    font-variant-numeric:tabular-nums;display:block}
+  .tile .k{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-top:5px;display:block}
+  .tile.hot .n{color:var(--accent-hot)}
+  .tile.warn .n{color:var(--accent)}
+
+  /* ---------- posture bar ---------- */
+  .posture{margin:22px 0 0;border:1px solid var(--border);border-radius:var(--radius);
+    background:var(--surface);padding:15px 16px 14px}
+  .posture h2{margin:0 0 11px;font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);font-weight:650}
+  .pbar{display:flex;gap:2px;height:12px;border-radius:2px;overflow:hidden;background:var(--bg)}
+  .pseg{min-width:3px}
+  .pseg.s-exploited{background:var(--accent-hot)}
+  .pseg.s-attempts{background:repeating-linear-gradient(135deg,var(--accent) 0 3px,#8f3a0f 3px 6px)}
+  .pseg.s-none{background:var(--muted)}
+  .plegend{display:flex;flex-wrap:wrap;gap:16px;margin-top:11px}
+  .plegend span{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-dim)}
+  .swatch{width:11px;height:11px;border-radius:2px;flex:none}
+  .swatch.s-exploited{background:var(--accent-hot)}
+  .swatch.s-attempts{background:repeating-linear-gradient(135deg,var(--accent) 0 3px,#8f3a0f 3px 6px)}
+  .swatch.s-none{background:var(--muted)}
+  .plegend b{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--ink);font-weight:600}
+
+  /* ---------- controls ---------- */
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:26px 0 0;
+    padding-bottom:18px;border-bottom:1px solid var(--border)}
+  .search{position:relative;flex:1 1 230px;min-width:0}
+  .search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);pointer-events:none}
+  .search input{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--ink);
+    border-radius:var(--radius);padding:9px 11px 9px 34px;font-size:14px;font-family:var(--sans)}
+  .search input::placeholder{color:var(--muted)}
+  .search input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{background:var(--surface);border:1px solid var(--border);color:var(--ink-dim);
+    border-radius:999px;padding:6px 13px;font-size:12.5px;cursor:pointer;font-family:var(--sans);
+    transition:border-color .12s,color .12s,background .12s;white-space:nowrap}
+  .chip:hover{border-color:var(--border-strong);color:var(--ink)}
+  .chip[aria-pressed="true"]{background:var(--accent-hot);border-color:var(--accent-hot);color:#0A0A0A;font-weight:600}
+  .chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .btn{background:transparent;border:1px solid var(--border);color:var(--ink-dim);border-radius:var(--radius);
+    padding:7px 13px;font-size:12.5px;cursor:pointer;font-family:var(--sans);white-space:nowrap}
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .count{font-size:12.5px;color:var(--muted);font-family:var(--mono);white-space:nowrap}
+
+  /* ---------- entry cards ---------- */
+  .entries{margin:0;padding:0;list-style:none}
+  .card{border-bottom:1px solid var(--border)}
+  .card.is-open{background:var(--surface)}
+  .chead{display:flex;gap:16px;padding:20px 4px;cursor:pointer;align-items:flex-start;
+    width:100%;background:none;border:0;text-align:left;font-family:inherit;color:inherit}
+  .chead:hover .ctitle{color:var(--accent)}
+  .chead:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  .rank{flex:none;width:34px;height:34px;border-radius:var(--radius);display:grid;place-items:center;
+    font-family:var(--mono);font-size:14px;font-weight:650;font-variant-numeric:tabular-nums;
+    background:var(--raised);border:1px solid var(--border);color:var(--muted)}
+  .card[data-status="exploited_in_the_wild"] .rank{background:var(--accent-hot);border-color:var(--accent-hot);color:#0A0A0A}
+  .cbody{flex:1;min-width:0}
+  .ctitle{margin:0;font-size:16.5px;font-weight:600;line-height:1.4;letter-spacing:-.005em;
+    transition:color .12s}
+  .meta{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px;align-items:center}
+  .teaser{margin:10px 0 0;font-size:14px;color:var(--muted);
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .card.is-open .teaser{display:none}
+  .caret{flex:none;color:var(--muted);transition:transform .15s;margin-top:7px}
+  .card.is-open .caret{transform:rotate(90deg);color:var(--accent)}
+
+  /* pills: status differentiated by WEIGHT + always a text label, never hue alone */
+  .pill{font-size:11px;letter-spacing:.05em;text-transform:uppercase;font-weight:650;
+    padding:3px 9px;border-radius:999px;border:1px solid;white-space:nowrap;display:inline-flex;
+    align-items:center;gap:5px;line-height:1.5}
+  .pill.st-exploited{background:var(--accent-hot);border-color:var(--accent-hot);color:#0A0A0A}
+  .pill.st-attempts{background:transparent;border-color:var(--accent);color:var(--accent)}
+  .pill.st-none{background:transparent;border-color:var(--border-strong);color:var(--muted)}
+  .pill.kev{background:transparent;border-color:var(--accent-line);color:var(--accent)}
+  .pill.nopatch{background:var(--accent-hot);border-color:var(--accent-hot);color:#0A0A0A}
+  .pill.partial{background:transparent;border-color:var(--accent);color:var(--accent)}
+  .pill.plain{background:transparent;border-color:var(--border);color:var(--muted);
+    text-transform:none;letter-spacing:0;font-weight:500}
+  .cve{font-family:var(--mono);font-size:11.5px;color:var(--ink-dim);background:var(--raised);
+    border:1px solid var(--border);border-radius:3px;padding:2px 7px;white-space:nowrap}
+  .cve.more{color:var(--muted);background:transparent}
+
+  /* ---------- detail ---------- */
+  .detail{display:none;padding:0 4px 30px 54px}
+  .card.is-open .detail{display:block}
+  .sec{margin-top:26px}
+  .sec:first-child{margin-top:6px}
+  .sec > h3{margin:0 0 12px;font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;
+    color:var(--accent);font-weight:650;display:flex;align-items:center;gap:9px}
+  .sec > h3::after{content:"";flex:1;height:1px;background:var(--border)}
+  .prose{margin:0;font-size:14.5px;color:var(--ink-dim);line-height:1.72;max-width:76ch}
+  .facts{display:flex;flex-wrap:wrap;border:1px solid var(--border);
+    border-radius:var(--radius);overflow:hidden}
+  .facts div{flex:1 1 168px;background:var(--bg);padding:10px 13px;
+    border-right:1px solid var(--border);border-bottom:1px solid var(--border)}
+  .card.is-open .facts div{background:var(--raised)}
+  .facts dt{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 3px}
+  .facts dd{margin:0;font-size:13px;font-family:var(--mono);color:var(--ink-dim)}
+  ul.list{margin:0;padding-left:0;list-style:none}
+  ul.list li{position:relative;padding-left:20px;margin-bottom:8px;font-size:14px;color:var(--ink-dim);max-width:78ch}
+  ul.list li::before{content:"";position:absolute;left:4px;top:9px;width:5px;height:5px;
+    background:var(--accent);border-radius:1px}
+  ul.list.num{counter-reset:a}
+  ul.list.num li{counter-increment:a;padding-left:26px}
+  ul.list.num li::before{content:counter(a);background:none;font-family:var(--mono);font-size:11.5px;
+    color:var(--accent);top:0;left:2px;width:auto;height:auto;font-weight:600}
+
+  /* KQL */
+  .kql{border:1px solid var(--border);border-radius:var(--radius);margin-bottom:14px;background:var(--bg);overflow:hidden}
+  .kql-head{display:flex;gap:12px;align-items:flex-start;padding:11px 13px;
+    border-bottom:1px solid var(--border);background:var(--raised);flex-wrap:wrap}
+  .kql-head .kn{flex:1;min-width:140px}
+  .kql-head h4{margin:0;font-size:13.5px;font-weight:600;color:var(--ink)}
+  .kql-head p{margin:5px 0 0;font-size:12.5px;color:var(--muted);line-height:1.55;max-width:74ch}
+  .plat{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+    border:1px solid var(--accent-line);color:var(--accent);border-radius:3px;padding:2px 7px;
+    white-space:nowrap;flex:none}
+  .kql pre{margin:0;padding:14px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;
+    line-height:1.65;color:var(--ink-dim);tab-size:2}
+  .kql pre .k{color:var(--accent)}
+  .kql pre .s{color:#C9C4B8}
+  .kql pre .c{color:#6E6A63;font-style:italic}
+  .copy{flex:none;background:transparent;border:1px solid var(--border);color:var(--muted);
+    border-radius:3px;padding:4px 9px;font-size:11px;cursor:pointer;font-family:var(--sans);white-space:nowrap}
+  .copy:hover{border-color:var(--accent);color:var(--accent)}
+  .copy.ok{border-color:var(--accent-hot);color:var(--accent-hot)}
+
+  /* IOC table */
+  .tbl-wrap{border:1px solid var(--border);border-radius:var(--radius);overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  thead th{text-align:left;padding:9px 13px;background:var(--raised);color:var(--muted);
+    font-size:10px;letter-spacing:.09em;text-transform:uppercase;font-weight:650;
+    border-bottom:1px solid var(--border);white-space:nowrap}
+  tbody td{padding:10px 13px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--ink-dim)}
+  tbody tr:last-child td{border-bottom:0}
+  td.v{font-family:var(--mono);font-size:12.5px;color:var(--ink);overflow-wrap:anywhere;min-width:120px}
+  td.t{font-family:var(--mono);font-size:11.5px;color:var(--accent);white-space:nowrap}
+  td.ctx{min-width:220px;line-height:1.55}
+  td.src{font-size:12px;color:var(--muted);min-width:130px}
+  .cf{font-size:10px;letter-spacing:.06em;text-transform:uppercase;font-weight:650;padding:2px 7px;
+    border-radius:999px;border:1px solid;white-space:nowrap}
+  .cf.high{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent)}
+  .cf.medium{background:transparent;border-color:var(--border-strong);color:var(--ink-dim)}
+  .cf.low{background:transparent;border-color:var(--border);color:var(--muted)}
+  tr.is-note td{background:rgba(255,106,26,.05)}
+  .note-row{font-size:12.5px;color:var(--muted);font-style:italic}
+  .refs{margin:0;padding:0;list-style:none}
+  .refs li{margin-bottom:7px}
+  .refs a{color:var(--accent);text-decoration:none;font-size:13px;font-family:var(--mono);
+    overflow-wrap:anywhere;border-bottom:1px solid transparent}
+  .refs a:hover{border-bottom-color:var(--accent)}
+
+  /* ---------- provenance ---------- */
+  .prov{margin:40px 0 0;border:1px solid var(--border);border-left:3px solid var(--border-strong);
+    border-radius:var(--radius);background:var(--surface)}
+  .prov > summary{cursor:pointer;padding:15px 18px;font-size:13px;font-weight:600;color:var(--ink);
+    list-style:none;display:flex;align-items:center;gap:10px}
+  .prov > summary::-webkit-details-marker{display:none}
+  .prov > summary:hover{color:var(--accent)}
+  .prov > summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  .prov[open] > summary{border-bottom:1px solid var(--border)}
+  .prov-body{padding:18px}
+  .prov-body h4{margin:20px 0 9px;font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;
+    color:var(--muted);font-weight:650}
+  .prov-body h4:first-child{margin-top:0}
+  .prov-body dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:7px 14px;font-size:13.5px}
+  .prov-body dt{font-weight:650;color:var(--accent);font-size:11px;letter-spacing:.06em;
+    text-transform:uppercase;padding-top:3px}
+  .prov-body dd{margin:0;color:var(--ink-dim)}
+
+  footer.foot{margin:44px 0 0;border-top:1px solid var(--border);padding:20px 0 50px;
+    display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between;align-items:center}
+  footer.foot p{margin:0;font-size:12px;color:var(--muted);font-family:var(--mono)}
+  .drop-hint{font-size:12px;color:var(--muted)}
+
+  .empty{padding:60px 4px;text-align:center;color:var(--muted);font-size:14px}
+  body.dragging::after{content:"Drop a TI JSON file to load it";position:fixed;inset:14px;
+    border:2px dashed var(--accent);border-radius:8px;background:rgba(10,10,10,.9);color:var(--accent);
+    display:grid;place-items:center;font-size:17px;font-weight:600;z-index:99;pointer-events:none}
+
+  @media (max-width:720px){
+    .brand{align-items:flex-start}
+    .detail{padding-left:4px}
+    .stamp{gap:16px}
+    .mast-in{padding-top:22px}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+  /* ---------- print ---------- */
+  @media print{
+    :root{--bg:#fff;--surface:#fff;--raised:#f4f2ee;--border:#d5d2cb;--border-strong:#b5b1a8;
+          --ink:#111;--ink-dim:#2a2a28;--muted:#5d5a54;--accent:#B83F00;--accent-hot:#B83F00;
+          --accent-soft:#faeee6;--accent-line:#e0b79e}
+    body{font-size:10.5pt}
+    .controls,.caret,.copy,footer.foot,.drop-hint{display:none!important}
+    .detail{display:block!important;padding-left:0;page-break-inside:avoid}
+    .teaser{display:none!important}
+    .card{page-break-inside:avoid;border-bottom:1px solid var(--border)}
+    .chead{cursor:default;padding:14px 0}
+    .card[data-status="exploited_in_the_wild"] .rank{background:#B83F00;color:#fff}
+    .pill.st-exploited,.pill.nopatch{background:#B83F00;color:#fff}
+    .kql pre{white-space:pre-wrap;word-break:break-word}
+    .prov{border-left-width:2px}
+    .prov-body{display:block!important}
+    a[href]::after{content:" (" attr(href) ")";font-size:8pt;color:#5d5a54}
+    .refs a::after{content:none}
+  }
+</style>
+</head>
+<body>
+<header class="mast">
+  <div class="mast-in">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <path d="M16 2 4 7v9.5C4 23.2 9.1 28.8 16 30c6.9-1.2 12-6.8 12-13.5V7L16 2Z"
+              stroke="#FF6A1A" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M16 11v6" stroke="#FF6A1A" stroke-width="2.4" stroke-linecap="round"/>
+        <circle cx="16" cy="21.5" r="1.5" fill="#FF6A1A"/>
+      </svg>
+      <div class="brand-txt">
+        <h1 id="feed-name">Threat Intelligence Brief</h1>
+        <p id="feed-sub">—</p>
+      </div>
+    </div>
+    <dl class="stamp" id="stamp"></dl>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="alert-slot"></div>
+  <section class="tiles" id="tiles" aria-label="Report statistics"></section>
+  <section class="posture" id="posture" aria-label="Exploitation posture"></section>
+
+  <div class="controls">
+    <div class="search">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <circle cx="7" cy="7" r="4.5" stroke="#9A958C" stroke-width="1.6"/>
+        <path d="m10.5 10.5 3 3" stroke="#9A958C" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+      <input type="search" id="q" placeholder="Search titles, CVEs, summaries, IOCs…" aria-label="Search entries">
+    </div>
+    <div class="chips" id="status-chips" role="group" aria-label="Filter by exploitation status"></div>
+    <div class="chips" role="group" aria-label="Additional filters">
+      <button class="chip" id="f-kev" aria-pressed="false">KEV only</button>
+      <button class="chip" id="f-nopatch" aria-pressed="false">No / partial patch</button>
+    </div>
+    <button class="btn" id="toggle-all">Expand all</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <ul class="entries" id="entries"></ul>
+  <div class="empty" id="empty" hidden>No entries match the current filters.</div>
+
+  <details class="prov" id="prov">
+    <summary>
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <circle cx="8" cy="8" r="6.4" stroke="#FF6A1A" stroke-width="1.5"/>
+        <path d="M8 7.2v4" stroke="#FF6A1A" stroke-width="1.7" stroke-linecap="round"/>
+        <circle cx="8" cy="4.9" r=".95" fill="#FF6A1A"/>
+      </svg>
+      Provenance, collection limitations &amp; confidence legend — read before operational use
+    </summary>
+    <div class="prov-body" id="prov-body"></div>
+  </details>
+
+  <footer class="foot">
+    <p id="foot-meta">—</p>
+    <span class="drop-hint">Drag &amp; drop another TI JSON file onto this page to view it</span>
+  </footer>
+</main>
+
+<script id="ti-data" type="application/json">{"schema_version":"1.0","feed_id":"ti-daily-top10","feed_name":"Daily Threat Intelligence Output - Top 10 Vulnerabilities and Cyber Incidents","report":{"check_performed_at":"2026-10-15T12:00:00Z","check_performed_at_local":"2026-10-15","timezone":"UTC","coverage_window":{"start":"2026-10-14T12:00:00Z","end":"2026-10-15T12:00:00Z","duration_hours":24.0,"note":"UK-focused run (UK government first, then UK corporates). No new UK government incident first reported inside the window was found. New inside/near window: Ivanti Connect Secure chained zero-days (CISA KEV 13 Oct), CISA KEV additions of 14 Oct (PAN-OS, Cisco SEG, Ahsay), H&M ShinyHunters claims, and TFG London/ASOS updates. NetScaler, FortiBleed and the Iran-linked generator incident are carry-overs. Fewer than 10 entries are reported rather than padding with items lacking UK relevance."},"entry_count":7,"generated_by":"scheduled-claude-research","next_check_due":"2026-10-16T12:00:00Z"},"collection_metadata":{"collection_method":"open-source web search aggregation (search snippets only)","limitations":["Direct page fetches (ncsc.gov.uk, bleepingcomputer.com and others) failed in this environment; content is drawn from search-result summaries and may be inaccurate. Verify against primary sources.","Search surfaced little dated within the last 24 hours; several results had unreliable date metadata. No UK government incident confirmed in the window.","Attribution statements (ShinyHunters, Russian-speaking actors) are press reports, not confirmed.","KQL queries are untested hunting starting points; validate table availability and tune before use.","Citrix indicator values are relayed from secondary sources; use vendor IoC tooling for full lists.","2026-10-14 run: only search-result summaries were used; ASOS details (Xuanyewen/Simon AI/Snowflake claims, record counts) differ between outlets and are unverified.","2026-10-15 run: search-result summaries only; CVE-2026-0322 and the Ivanti/Ahsay details could not be verified against vendor or CISA primary pages; dates in some results were unreliable."],"confidence_legend":{"high":"Corroborated by the vendor advisory or by multiple independent reputable sources.","medium":"Reported by a single reputable source, or by secondary coverage of a primary source not directly accessible.","low":"Single-sourced and uncorroborated; treat as an investigative lead only."},"exploitation_status_values":["exploited_in_the_wild","exploitation_attempts_reported_unconfirmed","public_poc_available","no_known_exploitation"],"kql_platform_values":["sentinel","defender_xdr"],"ioc_types_present":["actor","filepath","malware","ttp"]},"vulnerabilities":[{"rank":1,"id":"TI-2026-10-15-001","title":"Citrix NetScaler ADC/Gateway Zero-Days Under Active Exploitation - NCSC and NHS England Alerts; UK Follow-on SAML Flaw Pending (CVE-2026-88771, CVE-2026-88772, CVE-2026-107406)","cve_ids":["CVE-2026-88771","CVE-2026-88772","CVE-2026-107406"],"vendor":"Citrix / Cloud Software Group","affected_products":["NetScaler ADC and Gateway 14.1 before 14.1-73.37","NetScaler ADC and Gateway 13.1 before 13.1-64.23","FIPS / NDcPP variants","Hybrid Secure Private Access deployments using NetScaler"],"category":"vulnerability","cvss_v3":9.5,"severity":"critical","exploitation_status":"exploited_in_the_wild","kev_listed":true,"kev_due_date":"2026-09-30","patch_available":"yes","first_reported":"2026-09-27","last_updated":"2026-10-15","confidence":"medium","summary":"UPDATE 2026-10-15: No NCSC update newer than the September advisory was found in the window; the NCSC continues to urge prompt mitigation, says it is still assessing UK impact, and warned that exploitation attempts would rise once patches and technical details were public (which has now happened: public PoC and mass 'spray and pray' scanning reported 2026-10-14). Mandiant says exploitation began in early September and affected North America and Europe. Sophos warns patching alone does not evict an attacker already on an appliance. Prior detail: UPDATE 2026-10-14: Help Net Security reports NetScaler exploitation has escalated from stealthy zero-day targeting into widespread 'spray and pray' attacks, fuelled by a published root-cause analysis and a public proof-of-concept exploit; Citrix and CISA confirm active exploitation and note patching alone may not remove access from an already-compromised appliance. No UK-specific victims were identified in search. The UK NCSC has told UK organisations to mitigate Citrix NetScaler ADC and Gateway flaws promptly after confirming reports of active exploitation of CVE-2026-88771 (unauthenticated command execution, CVSS 9.5, affects default configurations) and CVE-2026-88772 (memory overflow leading to code execution or DoS, CVSS 9.5, requires DTLS, which is on by default for VPN virtual servers). Citrix disclosed them on 2026-09-27 (bulletin CTX697096) and CISA added both to KEV the same day with a 2026-09-30 federal deadline, but researchers report webshell deployment since early September, i.e. exploitation preceded disclosure. NHS England's National CSOC issued alert CC-4858 (2026-09-28) rating further exploitation 'almost certain', and a follow-on alert CC-4865 (updated 2026-10-09) covers a separate critical SAML memory-overflow flaw, CVE-2026-107406, which NHS CSOC assesses as likely to be exploited but which is not reported exploited. NetScaler is common in UK central government, NHS trusts, councils and corporate remote-access estates; no UK-specific exposure count was found (global counts range from ~21,000 to ~50,000 exposed instances depending on scanner). Post-exploitation reporting describes web shells (WHIPSHOT), a Python tunneller (SLAPSHOT) and a custom remote-management implant (Platypus) with a replaced customsnmpd. Patching alone does not evict an implant: appliances exposed since early September should be treated as potentially compromised. NOTE: this item is a carry-over/escalation from late September rather than a first report inside the 24h window; it is included because it is the only confirmed, actively exploited issue with direct NCSC and NHS England UK advisories and a pending follow-on CVE. Indicator detail comes from secondary vendor blogs - verify against Citrix's IoC scanner and the NCSC page. Primary pages could not be fetched directly in this run.","recommended_actions":["Treat public PoC availability as raising urgency: patch internet-facing NetScaler now, and rebuild/replace any appliance exposed since early September rather than only patching.","Upgrade to 14.1-73.37 / 13.1-64.23 or later and then apply the fix for CVE-2026-107406 as it lands; do not rely on mitigation alone.","Run Citrix's IoC checker and review appliances for the listed file paths, unexpected .deb files and replaced customsnmpd; treat hits as full compromise.","Rotate credentials and secrets stored on or reachable from the appliance, and invalidate VPN sessions.","Restrict management and gateway exposure; forward NetScaler logs to Sentinel.","Follow NCSC and NHS England Digital cyber alerts CC-4858/CC-4865 for updates."],"kql":[{"platform":"defender_xdr","table":"DeviceFileEvents","name":"Citrix NetScaler - exploitation artefact file paths","description":"Applies if NetScaler/Linux telemetry or file-integrity logs reach MDE. Otherwise port to FIM or syslog.","query":"DeviceFileEvents\n| where Timestamp > ago(45d)\n| where FolderPath has_any (\"/vpn/scripts/linux/\",\"/var/netscaler/logon/LogonPoint/custom/\")\n| where FileName in~ (\"nsgclient18.deb\",\"nsg64.deb\",\".ctxs.receiver\") or FileName endswith \".deb\"\n| project Timestamp, DeviceName, FolderPath, FileName, SHA256, InitiatingProcessFileName, InitiatingProcessCommandLine\n| sort by Timestamp desc"},{"platform":"sentinel","table":"CommonSecurityLog","name":"Citrix NetScaler - post-patch outbound connections from appliances","description":"Populate ns_ips. Flags appliance-originated outbound connections to non-allow-listed public destinations (implant C2 / tunnelling).","query":"let ns_ips = dynamic([\"\u003cNETSCALER_SNIP_OR_NSIP>\"]);\nlet allowed = dynamic([\"\u003cNTP/DNS/UPDATE_IPs>\"]);\nCommonSecurityLog\n| where TimeGenerated > ago(45d)\n| where SourceIP in (ns_ips)\n| where DestinationIP !in (allowed) and not(ipv4_is_private(DestinationIP))\n| summarize Connections=count(), Ports=make_set(DestinationPort,20), FirstSeen=min(TimeGenerated), LastSeen=max(TimeGenerated) by SourceIP, DestinationIP\n| sort by Connections desc"},{"platform":"sentinel","table":"Syslog","name":"Citrix NetScaler - suspicious activity in appliance syslog","description":"Looks for shell/webshell keywords in NetScaler syslog. Field names vary by build; tune.","query":"Syslog\n| where TimeGenerated > ago(45d)\n| where Computer has_any (\"netscaler\",\"ns\") or ProcessName has \"nsppe\"\n| where SyslogMessage has_any (\"WHIPSHOT\",\"SLAPSHOT\",\"customsnmpd\",\".ctxs.receiver\",\"nsgclient18\",\"/bin/sh -c\")\n| project TimeGenerated, Computer, ProcessName, SyslogMessage\n| sort by TimeGenerated desc"}],"iocs":[{"type":"filepath","value":"/vpn/scripts/linux/nsgclient18.deb","context":"Unexpected package staged on appliance.","confidence":"medium","source":"Unit 42 (as relayed)"},{"type":"filepath","value":"/vpn/scripts/linux/nsg64.deb","context":"Unexpected package staged on appliance.","confidence":"medium","source":"Unit 42 (as relayed)"},{"type":"filepath","value":"/var/netscaler/logon/LogonPoint/custom/.ctxs.receiver","context":"Hidden artefact in LogonPoint custom directory.","confidence":"medium","source":"Unit 42 (as relayed)"},{"type":"malware","value":"Platypus","context":"Custom remote-management implant delivered after exploitation; replaced customsnmpd.","confidence":"medium","source":"Binary Defense / eSentire (as relayed)"},{"type":"malware","value":"WHIPSHOT (PHP webshell); SLAPSHOT (Python tunneller)","context":"Post-exploitation tooling.","confidence":"low","source":"Secondary reporting"},{"type":"note","value":"Full IP/hash lists (58 attacker IPs, webshell SHA-256) exist in Citrix IoC checker v1.4 / vendor reports and were not transcribed.","context":"Provenance statement - filter before ingestion.","confidence":"high","source":"analyst note"}],"references":["https://www.ncsc.gov.uk/news/exploitation-of-vulnerabilities-affecting-citrix-netscaler-adc-and-citrix-netscaler-gateway","https://digital.nhs.uk/cyber-alerts/2026/cc-4858","https://digital.nhs.uk/cyber-alerts/2026/cc-4865","https://unit42.paloaltonetworks.com/netscaler-zero-days-exploited/","https://www.computerweekly.com/news/366651460/Cyber-authorities-issue-alert-over-exploitation-of-Citrix-vulns","https://www.helpnetsecurity.com/?p=386203","https://www.bleepingcomputer.com/news/security/citrix-admins-warned-to-shut-down-netscalers-over-2-exploited-zero-days/"]},{"rank":2,"id":"TI-2026-10-15-002","title":"Ivanti Connect Secure Chained Zero-Days (Auth Bypass + RCE + Root Privilege Escalation) Exploited by UTA0576 - Added to CISA KEV (CVE-2026-104935)","cve_ids":["CVE-2026-104935"],"vendor":"Ivanti","affected_products":["Ivanti Connect Secure before 25.1.3.0 (22.7R2.14 and earlier reported unaffected)"],"category":"vulnerability","cvss_v3":8.6,"severity":"high","exploitation_status":"exploited_in_the_wild","kev_listed":true,"kev_due_date":"2026-10-16","patch_available":"partial","first_reported":"2026-10-13","last_updated":"2026-10-15","confidence":"medium","summary":"Volexity reports an actor it tracks as UTA0576 chained three Ivanti Connect Secure zero-days from 2026-10-03: an authentication bypass and RCE (tracked together as CVE-2026-104935) giving code execution as the cgi-server user, then a privilege escalation to root. Ivanti acknowledges 'limited exploitation in the wild'; CISA added CVE-2026-104935 to KEV on 2026-10-13 (federal due date reported as 2026-10-16). Fixes reported in 25.1.3.0/25.1.3.1/22.8R2.5 for two flaws; the third fix is reportedly still pending and no workaround is listed. Ivanti Connect Secure is widely deployed in UK government, NHS and corporate remote access and has a history of NCSC alerts (2024, 2025); no UK-specific victim was identified, but UK edge-VPN exposure makes this a priority hunt. Details come from search summaries (Hacker News/Forkast) and are unverified against Ivanti/CISA primary pages.","recommended_actions":["Patch Connect Secure to the fixed builds immediately and apply any interim guidance for the unpatched third flaw.","Run Ivanti's Integrity Checker Tool (noting past bypasses) and compare against known-good; if compromise suspected factory reset/rebuild and rotate all credentials and certificates.","Review appliance logs for unauthenticated requests to the API/auth endpoints from 2026-10-03.","Follow NCSC guidance on Ivanti exploitation."],"kql":[{"platform":"sentinel","table":"CommonSecurityLog","name":"Ivanti Connect Secure - new outbound or admin changes","description":"Surfaces Ivanti appliance syslog showing config/admin changes or unexpected outbound flows since 2026-10-03.","query":"CommonSecurityLog\n| where TimeGenerated > ago(14d)\n| where DeviceVendor has \"Ivanti\" or DeviceProduct has \"Connect Secure\"\n| where Activity has_any (\"admin\",\"configuration\",\"integrity\",\"upload\") or Message has_any (\"cgi-server\",\"setuid\")\n| project TimeGenerated, DeviceName, SourceIP, Activity, Message\n| sort by TimeGenerated desc"},{"platform":"defender_xdr","table":"DeviceNetworkEvents","name":"Outbound connections from Ivanti appliance management range","description":"Hunt for appliance-sourced connections to rare external hosts (set IvantiIPs).","query":"let IvantiIPs = dynamic([]); // populate with appliance IPs\nDeviceNetworkEvents\n| where Timestamp > ago(14d)\n| where LocalIP in (IvantiIPs)\n| summarize Conns=count(), Ports=make_set(RemotePort) by RemoteIP\n| where Conns \u003c 5\n| sort by Conns asc"}],"iocs":[{"type":"actor","value":"UTA0576","context":"Volexity-tracked cluster exploiting the Ivanti chain from 2026-10-03.","confidence":"medium","source":"Hacker News/Volexity (as relayed)"},{"type":"ttp","value":"Chained auth bypass + RCE + local privilege escalation on VPN appliance","context":"ATT&CK T1190, T1068.","confidence":"medium","source":"Hacker News (as relayed)"},{"type":"note","value":"No network or file indicators were obtained for this entry in this run; consult Volexity's publication.","context":"Provenance statement - filter before ingestion.","confidence":"high","source":"analyst note"}],"references":["https://thehackernews.com/2026/10/attacker-chains-three-ivanti-connect.html","https://www.cisa.gov/news-events/alerts/2026/10/13/cisa-adds-two-known-exploited-vulnerabilities-catalog","https://www.scworld.com/news/cisa-adds-chained-ivanti-connect-secure-bug-to-its-exploited-list"]},{"rank":3,"id":"TI-2026-10-15-003","title":"TFG London (Hobbs, Whistles, Phase Eight) Cyber Incident Disrupts UK Retail IT Systems; Second UK Retailer Incident in a Week","cve_ids":[],"vendor":"The Foschini Group (TFG London)","affected_products":["TFG London corporate IT and e-commerce systems supporting Phase Eight, Hobbs and Whistles"],"category":"incident","cvss_v3":null,"severity":"high","exploitation_status":"no_known_exploitation","kev_listed":false,"kev_due_date":null,"patch_available":"no","first_reported":"2026-10-11","last_updated":"2026-10-15","confidence":"medium","summary":"UPDATE 2026-10-15: Coverage on 2026-10-13/14 (ITV, Yorkshire Post, The Register) adds that TFG has reported the incident to the relevant UK authorities, is working with external cyber specialists, says it has no reason to believe payment data is at risk (card processing is via a third-party provider), and that TFG Africa/Australia are unaffected. Online orders placed after 11 Oct may be delayed and postal returns are unavailable. Data impact is still unconfirmed; no later statement found. Prior detail: No new development found in the 2026-10-14 window (carry-over). TFG London, the UK arm of South Africa's Foschini Group, disclosed on 2026-10-13 that it detected a cyber incident on Sunday 2026-10-11 affecting IT systems for the Phase Eight, Hobbs and Whistles brands. Stores remain open but several systems are down, some websites are impaired and online orders placed since 2026-10-11 may be delayed; customers have been asked not to resubmit orders. The company has engaged external specialists, activated incident-response and continuity plans, notified UK authorities and says it has no reason to believe payment details are at risk, but has not yet determined whether customer or other data was taken. Inside Story and White Stuff run on separate systems and were not affected. Press describes it as the second attack on a UK retailer in about a week (ASOS disclosed unauthorised access to personal data the previous week). Some outlets link the activity to the ShinyHunters group; TFG has not confirmed attribution, so treat that as an unverified lead. No CVE, initial access vector or IOCs have been published. Relevance to UK corporates: continued targeting of UK retail via help-desk social engineering, third-party and SaaS access has been the pattern since the 2025 M&S/Co-op/Harrods wave.","recommended_actions":["Retail and consumer brands: review help-desk identity-verification and MFA reset procedures and privileged-access paths.","Monitor for phishing/smishing impersonating the affected brands; customers should not resubmit orders or follow links in unsolicited messages.","Review third-party/SaaS (CRM, ticketing, data-warehouse) tokens and OAuth grants for anomalous access.","Watch ICO and TFG statements for confirmation of data impact."],"kql":[{"platform":"sentinel","table":"AuditLogs","name":"Help-desk driven MFA/password resets followed by risky sign-in","description":"Generic hunt for the social-engineering pattern used against UK retailers. Not specific to TFG; no IOCs published.","query":"let resets = AuditLogs\n| where TimeGenerated > ago(14d)\n| where OperationName in (\"Reset password (by admin)\",\"Reset user password\",\"User registered security info\",\"Admin registered security info\")\n| extend Target = tostring(TargetResources[0].userPrincipalName)\n| project ResetTime=TimeGenerated, Target, OperationName, Actor=tostring(InitiatedBy.user.userPrincipalName);\nSigninLogs\n| where TimeGenerated > ago(14d) and RiskLevelDuringSignIn in (\"medium\",\"high\")\n| join kind=inner resets on $left.UserPrincipalName == $right.Target\n| where TimeGenerated between (ResetTime .. ResetTime + 4h)\n| project TimeGenerated, UserPrincipalName, IPAddress, Location, AppDisplayName, OperationName, Actor, RiskLevelDuringSignIn"}],"iocs":[{"type":"actor","value":"ShinyHunters (unconfirmed attribution)","context":"Some media link the incident to this group; TFG has not confirmed.","confidence":"low","source":"Press reports (as relayed)"},{"type":"note","value":"No technical indicators have been published for the TFG London incident.","context":"Provenance statement - filter before ingestion.","confidence":"high","source":"analyst note"}],"references":["https://www.retail-week.com/fashion/hobbs-and-whistles-parent-company-hit-by-cyber-attack/7052354.article","https://www.theindustry.fashion/hobbs-and-whistles-owner-struck-by-cyber-attack/","https://www.itpro.com/security/cyber-attacks/another-major-fashion-retailer-hit-by-cyber-attack","https://londoncrimenews.co.uk/fraud-cybercrime/hobbs-whistles-owner-tfg-london-hit-by-cyber-attack"]},{"rank":4,"id":"TI-2026-10-15-004","title":"ASOS Breach and H&M 'ShinyHunters' Claims - UK Retail Third-Party Platform Compromise Wave (ASOS, TFG London, H&M)","cve_ids":[],"vendor":"ASOS","affected_products":["ASOS customer accounts / e-commerce platform","H&M (claims under investigation; no breach confirmed)"],"category":"incident","cvss_v3":null,"severity":"high","exploitation_status":"no_known_exploitation","kev_listed":false,"kev_due_date":null,"patch_available":"no","first_reported":"2026-10-06","last_updated":"2026-10-15","confidence":"medium","summary":"UPDATE 2026-10-15: Press on 2026-10-12/13 links ASOS, TFG London and H&M in one week. H&M told media it is investigating claims attributed to ShinyHunters circulating online, has no indication its data environment is compromised, and had not notified the ICO as of Monday 12 Oct (shares fell ~1.4%). Reports tie the ASOS breach (6 Oct) to stolen employee credentials and access to customer data through third-party platforms. Attribution remains unconfirmed. Prior detail: UPDATE 2026-10-14: TechCrunch (2026-10-08) and BleepingComputer report ASOS confirmed a breach after hackers sent a rogue in-app notification. ASOS says attackers broke into a third-party platform used to message customers; names and contact details (reports also cite addresses, phone numbers, emails, search data and customer numbers) may have been accessed, with no payment-card or password exposure reported. Attackers reportedly impersonated a trusted contact to obtain an employee's credentials. The BBC attributes it to a group calling itself Xuanyewen, which claims a Snowflake-based platform (Simon AI); Snowflake says it was not breached. Record counts vary widely between outlets (one claims millions) and are unverified. ASOS is working with law enforcement and regulators; UK and Australian customers are affected. Separate: US notifications (2026-08-21) describe an earlier ASOS account-takeover (~138,828 individuals, credential stuffing); not established to be the same event. Not new in the last 24h but carried with substantially updated detail; relevant to the ongoing sequence of attacks on UK retailers (see TFG London).","recommended_actions":["Review third-party SaaS/messaging platform access, enforce phishing-resistant MFA and conditional access on vendor-facing accounts.","Brief help-desk and staff on trusted-contact impersonation; monitor for phishing using leaked customer data.","Customers: be alert to phishing/SMS referencing ASOS orders; ICO notification expectations apply for UK data subjects."],"kql":[{"platform":"sentinel","table":"W3CIISLog","name":"Credential stuffing - many distinct usernames from one IP on login endpoint","description":"Generic detection for customer-facing login abuse; adjust the URI to your login path.","query":"W3CIISLog\n| where TimeGenerated > ago(7d)\n| where csMethod == \"POST\" and csUriStem has_any (\"/login\",\"/signin\",\"/account/authenticate\")\n| summarize Attempts=count(), Failures=countif(scStatus in (401,403)), Users=dcount(csUserName) by cIP, bin(TimeGenerated,15m)\n| where Attempts > 50 and Users > 20\n| sort by Attempts desc"}],"iocs":[{"type":"ttp","value":"Credential stuffing / account takeover using reused credentials","context":"Reported vector for the August 2026 ASOS notification; ATT&CK T1110.004.","confidence":"low","source":"eSecurityPlanet (as relayed)"},{"type":"note","value":"No technical indicators published.","context":"Provenance statement - filter before ingestion.","confidence":"high","source":"analyst note"},{"type":"actor","value":"Xuanyewen (self-described)","context":"Group named by BBC as claiming the ASOS intrusion; unverified.","confidence":"low","source":"BBC (as relayed)"},{"type":"actor","value":"ShinyHunters (claimed, unconfirmed)","context":"Named in reporting on H&M claims; ASOS/TFG links unverified.","confidence":"low","source":"Press reports (as relayed)"}],"references":["https://www.esecurityplanet.com/threats/news-asos-account-takeover-138828-customers/","https://www.itpro.com/security/cyber-attacks/another-major-fashion-retailer-hit-by-cyber-attack","https://techcrunch.com/2026/10/08/asos-confirms-breach-of-customer-data-after-hackers-send-rogue-app-notification/","https://bleepingcomputer.com/news/security/asos-confirms-data-breach-after-hacked-in-app-notifications","https://cyberinsider.com/asos-credential-stuffing-attack-exposed-data-of-138828-customers/","https://www.insurancebusinessmag.com/uk/news/cyber/handm-investigates-hacking-claims-as-retail-cyber-risks-spread-593134.aspx","https://www.expressandstar.com/uk-news/hm-investigating-cyber-attack-claims-reports-say-9283112"]},{"rank":5,"id":"TI-2026-10-15-005","title":"CISA KEV Additions 2026-10-14: PAN-OS, Cisco Secure Email Gateway and Ahsay AhsayCBS Chain Exploited (CVE-2026-0322, CVE-2026-76519, CVE-2026-105133, CVE-2026-105134)","cve_ids":["CVE-2026-0322","CVE-2026-76519","CVE-2026-105133","CVE-2026-105134"],"vendor":"Palo Alto Networks / Cisco / Ahsay","affected_products":["Palo Alto Networks PAN-OS","Cisco Secure Email Gateway","Ahsay AhsayCBS (backup server)"],"category":"vulnerability_bundle","cvss_v3":null,"severity":"high","exploitation_status":"exploited_in_the_wild","kev_listed":true,"kev_due_date":null,"patch_available":"partial","first_reported":"2026-10-14","last_updated":"2026-10-15","confidence":"low","summary":"CISA added four vulnerabilities to KEV on 2026-10-14 on evidence of active exploitation: CVE-2026-0322 (PAN-OS code injection), CVE-2026-76519 (Cisco Secure Email Gateway relative path traversal), and CVE-2026-105133/CVE-2026-105134 (AhsayCBS authentication bypass in the API component chained with command injection). No detailed exploitation reporting, federal due dates or UK victim data were found, and CVE-2026-0322 could not be corroborated beyond the CISA listing (a separate 2026 PAN-OS flaw, CVE-2026-0300, was exploited by suspected state actors from April). No NCSC alert was found. These products are common in UK public sector and MSP estates (firewalls, mail gateways, backup servers), so this is included as an inventory-and-patch priority rather than a confirmed UK incident.","recommended_actions":["Inventory PAN-OS, Cisco SEG and AhsayCBS exposure; apply vendor fixes and check internet exposure of management/API interfaces.","Treat AhsayCBS as high risk: it holds backups and can be chained pre-auth to command execution.","Check CISA KEV entries for due dates and vendor advisories for fixed versions."],"kql":[{"platform":"defender_xdr","table":"DeviceProcessEvents","name":"Ahsay AhsayCBS spawning shells","description":"Detects command execution from the AhsayCBS Java process.","query":"DeviceProcessEvents\n| where Timestamp > ago(14d)\n| where InitiatingProcessFileName in~ (\"java.exe\",\"java\") and InitiatingProcessCommandLine has_any (\"cbs\",\"Ahsay\")\n| where FileName in~ (\"cmd.exe\",\"powershell.exe\",\"sh\",\"bash\")\n| project Timestamp, DeviceName, InitiatingProcessCommandLine, ProcessCommandLine"},{"platform":"sentinel","table":"CommonSecurityLog","name":"PAN-OS - system/config events from management plane","description":"Config and admin changes on Palo Alto devices.","query":"CommonSecurityLog\n| where TimeGenerated > ago(14d)\n| where DeviceVendor == \"Palo Alto Networks\" and Activity has_any (\"config\",\"SYSTEM\")\n| project TimeGenerated, DeviceName, SourceIP, Activity, Message"}],"iocs":[{"type":"malware","value":"None published","context":"No indicators available for these KEV additions.","confidence":"low","source":"CISA KEV listing"},{"type":"note","value":"No technical indicators identified; CVE-2026-0322 unverified beyond the CISA listing as relayed by search.","context":"Provenance statement - filter before ingestion.","confidence":"high","source":"analyst note"}],"references":["https://www.cisa.gov/news-events/alerts/2026/10/14/cisa-adds-four-known-exploited-vulnerabilities-catalog"]},{"rank":6,"id":"TI-2026-10-15-006","title":"Carry-over: 'FortiBleed' - Stolen Fortinet Firewall Credentials Include UK Government, Embassy, Council and NHS Accounts Offered for Sale","cve_ids":[],"vendor":"Fortinet (appliances); actor unattributed","affected_products":["Fortinet FortiGate appliances (reported ~70,000-86,000 devices / credential sets, 194 countries)"],"category":"threat_actor_campaign","cvss_v3":null,"severity":"high","exploitation_status":"exploitation_attempts_reported_unconfirmed","kev_listed":false,"kev_due_date":null,"patch_available":"partial","first_reported":"2026-07-05","last_updated":"2026-10-15","confidence":"low","summary":"No new development found in the 2026-10-15 window (carry-over). Telegraph-led reporting from July 2026 says Russian-speaking actors harvested credentials from tens of thousands of Fortinet firewalls ('FortiBleed'); leaked/for-sale lists reportedly include IT staff at UK embassies (Thailand, Mauritius), local-authority staff (Derbyshire, Waltham Forest), and NHS, energy and medicine-supplier logins, with access priced up to ~$60,000. Counts vary by source (SOCRadar: 86,644 credentials). No formal state attribution and no NCSC/Fortinet PSIRT/CISA confirmation was found. This is NOT new in the 24h window - no fresh development was found - and is carried only because it is the most UK-government-specific credential exposure identified. Confidence is low; treat as a lead for credential rotation and exposure review.","recommended_actions":["Rotate all credentials and secrets on FortiGate devices and any accounts authenticating through them; invalidate VPN sessions.","Patch FortiOS to the latest release and review for unknown admin accounts, config changes and exposed management interfaces.","Check dark-web/credential-leak monitoring for your domains."],"kql":[{"platform":"sentinel","table":"CommonSecurityLog","name":"Fortinet - new admin accounts or config changes","description":"Detects admin/user creation and configuration changes in FortiGate CEF logs.","query":"CommonSecurityLog\n| where TimeGenerated > ago(30d)\n| where DeviceVendor == \"Fortinet\"\n| where Activity has_any (\"Add admin\",\"Add user\",\"Edit admin\",\"Configuration changed\",\"Attribute configured\") or AdditionalExtensions has \"cfgpath\"\n| project TimeGenerated, DeviceName, SourceIP, SourceUserName, Activity, Message\n| sort by TimeGenerated desc"}],"iocs":[{"type":"actor","value":"Russian-speaking threat actors (unattributed)","context":"Per press reporting; no formal attribution.","confidence":"low","source":"Telegraph (as relayed)"},{"type":"note","value":"No technical indicators identified for FortiBleed in this run.","context":"Provenance statement - filter before ingestion.","confidence":"high","source":"analyst note"}],"references":["https://henryjacksonsociety.org/2026/07/08/russian-hackers-steal-british-government-credentials/","https://www.insurancebusinessmag.com/uk/news/cyber/russian-hackers-expose-uk-government-logins-in-fortibleed-credential-breach-581332.aspx","https://www.sofx.com/russian-hackers-put-uk-government-and-nhs-logins-up-for-sale-on-dark-web/"]},{"rank":7,"id":"TI-2026-10-15-007","title":"Carry-over: Iran-Linked Cyberattack Reportedly Took Small UK Power Generator Offline for Four Days (July 2026, disclosed August)","cve_ids":[],"vendor":"Unnamed UK energy generator","affected_products":["Small-scale UK power generator (OT/IT; not classed as CNI)"],"category":"incident","cvss_v3":null,"severity":"medium","exploitation_status":"no_known_exploitation","kev_listed":false,"kev_due_date":null,"patch_available":"no","first_reported":"2026-08-27","last_updated":"2026-10-15","confidence":"low","summary":"NOT new in the 24h window - carried as UK-critical-infrastructure context. Telegraph-led reports say a small UK generator was disabled for four days in July 2026 in a suspected Iran-linked attack, concurrent with attacks on US water systems. Government says there was no risk to the national grid; the site was reported to the NCSC and the government wrote to operators with updated guidance. UK authorities have not publicly confirmed attribution. Search date metadata was inconsistent.","recommended_actions":["Energy and utilities operators: review internet-exposed OT/HMI devices and default credentials; apply government sector guidance.","Monitor for Iranian-linked ICS-targeting activity."],"kql":[{"platform":"sentinel","table":"CommonSecurityLog","name":"Inbound access to OT-facing ports from the internet","description":"Flags external sources reaching common ICS ports.","query":"CommonSecurityLog\n| where TimeGenerated > ago(14d)\n| where DestinationPort in (102,502,20000,44818,47808)\n| where not(ipv4_is_private(SourceIP))\n| summarize Hits=count() by SourceIP, DestinationIP, DestinationPort\n| sort by Hits desc"}],"iocs":[{"type":"actor","value":"Iran-linked actor (unattributed officially)","context":"Per press reporting.","confidence":"low","source":"Telegraph (as relayed)"},{"type":"note","value":"No technical indicators published.","context":"Provenance statement - filter before ingestion.","confidence":"high","source":"analyst note"}],"references":["https://cybernews.com/news/iran-linked-hackers-shut-down-uk-power-plant/","https://esecurityplanet.com/threats/news-iran-linked-hackers-uk-power-plant-cyberattack-emea"]}],"ioc_index":{"filepath":[{"value":"/vpn/scripts/linux/nsgclient18.deb","related_entry":"TI-2026-10-15-001","related_cves":["CVE-2026-88771","CVE-2026-88772","CVE-2026-107406"],"confidence":"medium"},{"value":"/vpn/scripts/linux/nsg64.deb","related_entry":"TI-2026-10-15-001","related_cves":["CVE-2026-88771","CVE-2026-88772","CVE-2026-107406"],"confidence":"medium"},{"value":"/var/netscaler/logon/LogonPoint/custom/.ctxs.receiver","related_entry":"TI-2026-10-15-001","related_cves":["CVE-2026-88771","CVE-2026-88772","CVE-2026-107406"],"confidence":"medium"}],"malware":[{"value":"Platypus","related_entry":"TI-2026-10-15-001","related_cves":["CVE-2026-88771","CVE-2026-88772","CVE-2026-107406"],"confidence":"medium"},{"value":"WHIPSHOT (PHP webshell); SLAPSHOT (Python tunneller)","related_entry":"TI-2026-10-15-001","related_cves":["CVE-2026-88771","CVE-2026-88772","CVE-2026-107406"],"confidence":"low"},{"value":"None published","related_entry":"TI-2026-10-15-005","related_cves":["CVE-2026-0322","CVE-2026-76519","CVE-2026-105133","CVE-2026-105134"],"confidence":"low"}],"actor":[{"value":"UTA0576","related_entry":"TI-2026-10-15-002","related_cves":["CVE-2026-104935"],"confidence":"medium"},{"value":"ShinyHunters (unconfirmed attribution)","related_entry":"TI-2026-10-15-003","related_cves":[],"confidence":"low"},{"value":"Xuanyewen (self-described)","related_entry":"TI-2026-10-15-004","related_cves":[],"confidence":"low"},{"value":"ShinyHunters (claimed, unconfirmed)","related_entry":"TI-2026-10-15-004","related_cves":[],"confidence":"low"},{"value":"Russian-speaking threat actors (unattributed)","related_entry":"TI-2026-10-15-006","related_cves":[],"confidence":"low"},{"value":"Iran-linked actor (unattributed officially)","related_entry":"TI-2026-10-15-007","related_cves":[],"confidence":"low"}],"ttp":[{"value":"Chained auth bypass + RCE + local privilege escalation on VPN appliance","related_entry":"TI-2026-10-15-002","related_cves":["CVE-2026-104935"],"confidence":"medium"},{"value":"Credential stuffing / account takeover using reused credentials","related_entry":"TI-2026-10-15-004","related_cves":[],"confidence":"low"}]},"summary_statistics":{"total_entries":7,"actively_exploited":3,"kev_listed":3,"no_patch_available":3,"partial_patch_available":3,"total_cves_referenced":8,"total_kql_queries":11,"total_iocs":21,"kev_deadlines_passed_or_due":["2026-09-30","2026-10-16"],"highest_priority_action":"Patch/rebuild internet-facing Citrix NetScaler (mass exploitation, public PoC) and Ivanti Connect Secure (KEV due 2026-10-16); review third-party messaging/SaaS access after the ASOS/TFG/H&M retail wave."}}</script>
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- labels ---------- */
+  var STATUS = {
+    exploited_in_the_wild:                     {short:"Exploited",        full:"Exploited in the wild",                  cls:"st-exploited", seg:"s-exploited"},
+    exploitation_attempts_reported_unconfirmed:{short:"Attempts seen",    full:"Exploitation attempts reported (unconfirmed)", cls:"st-attempts", seg:"s-attempts"},
+    public_poc_available:                      {short:"Public PoC",       full:"Public PoC available",                   cls:"st-attempts", seg:"s-attempts"},
+    no_known_exploitation:                     {short:"No known exploit", full:"No known exploitation",                   cls:"st-none",      seg:"s-none"}
+  };
+  var PATCH = {yes:null, partial:{t:"Partial patch",cls:"partial"}, no:{t:"No patch",cls:"nopatch"}};
+  var PLATFORM = {sentinel:"Sentinel", defender_xdr:"Defender XDR"};
+  var CATEGORY = {vulnerability:"Vulnerability", vulnerability_bundle:"Vulnerability bundle",
+                  threat_actor_campaign:"Threat actor campaign", incident:"Incident"};
+
+  /* ---------- dom helpers (textContent only - no HTML injection) ---------- */
+  function el(tag, cls, text){
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined && text !== null && text !== "") n.textContent = String(text);
+    return n;
+  }
+  function kv(dl, key, val, accent){
+    var d = el("div"), dt = el("dt", null, key), dd = el("dd");
+    if (accent){ var b = el("b", null, val); dd.appendChild(b); } else { dd.textContent = val; }
+    d.appendChild(dt); d.appendChild(dd); dl.appendChild(d); return d;
+  }
+  function sec(title){
+    var s = el("section","sec"); s.appendChild(el("h3", null, title)); return s;
+  }
+  function fmtDate(iso){
+    if (!iso) return "—";
+    var d = new Date(iso);
+    if (isNaN(d)) return String(iso);
+    var day = String(d.getUTCDate()).padStart(2,"0");
+    var mon = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getUTCMonth()];
+    var out = day + " " + mon + " " + d.getUTCFullYear();
+    if (String(iso).indexOf("T") > -1){
+      out += " " + String(d.getUTCHours()).padStart(2,"0") + ":" + String(d.getUTCMinutes()).padStart(2,"0") + "Z";
+    }
+    return out;
+  }
+  function label(s){
+    if (!s) return "—";
+    return String(s).replace(/_/g," ").replace(/^./, function(c){return c.toUpperCase();});
+  }
+
+  /* ---------- minimal KQL highlighter (safe: builds text nodes only) ---------- */
+  var KQL_KW = ("let|where|project|summarize|extend|sort|order|by|join|union|take|limit|distinct|"
+    + "count|dcount|countif|sum|make_set|make_list|min|max|any|avg|bin|ago|now|datetime|dynamic|"
+    + "todouble|tostring|toint|tolong|strcat|strlen|extract|extract_all|parse_json|coalesce|"
+    + "set_intersection|isnotempty|isempty|has|has_any|has_all|has_cs|contains|startswith|"
+    + "endswith|in|and|or|not|asc|desc|on|datetime_part|dayofweek|column_ifexists|"
+    + "ipv4_is_in_any_range|iff|case|print|top").split("|");
+  var KQL_RE = new RegExp("(//[^\\n]*)|(\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*')|\\b("
+    + KQL_KW.join("|") + ")\\b", "g");
+  function highlight(code){
+    var frag = document.createDocumentFragment(), last = 0, m;
+    KQL_RE.lastIndex = 0;
+    while ((m = KQL_RE.exec(code)) !== null){
+      if (m.index > last) frag.appendChild(document.createTextNode(code.slice(last, m.index)));
+      var span = el("span", m[1] ? "c" : (m[2] ? "s" : "k"), m[0]);
+      frag.appendChild(span);
+      last = m.index + m[0].length;
+    }
+    if (last < code.length) frag.appendChild(document.createTextNode(code.slice(last)));
+    return frag;
+  }
+
+  function copyBtn(getText, labelText){
+    var b = el("button","copy", labelText || "Copy");
+    b.type = "button";
+    b.addEventListener("click", function(ev){
+      ev.stopPropagation();
+      var txt = getText();
+      function done(){
+        var old = b.textContent;
+        b.textContent = "Copied"; b.classList.add("ok");
+        setTimeout(function(){ b.textContent = old; b.classList.remove("ok"); }, 1400);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(txt).then(done, function(){ fallback(txt, done); });
+      } else { fallback(txt, done); }
+    });
+    return b;
+  }
+  function fallback(txt, done){
+    var ta = el("textarea"); ta.value = txt;
+    ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); done(); } catch(e){ /* clipboard unavailable */ }
+    document.body.removeChild(ta);
+  }
+
+  /* ---------- state ---------- */
+  var DATA = null, FILTER = {q:"", status:"all", kev:false, nopatch:false}, ALL_OPEN = false;
+
+  /* ---------- render: masthead / tiles / posture ---------- */
+  function renderHead(){
+    var r = DATA.report || {}, w = r.coverage_window || {};
+    document.getElementById("feed-name").textContent = DATA.feed_name || "Threat Intelligence Brief";
+    document.getElementById("feed-sub").textContent =
+      (DATA.feed_id ? DATA.feed_id : "") + (DATA.schema_version ? "  ·  schema v" + DATA.schema_version : "");
+    document.title = (DATA.feed_name || "Threat Intelligence Brief") + " — " + (r.check_performed_at_local || "");
+
+    var dl = document.getElementById("stamp"); dl.textContent = "";
+    kv(dl, "Check performed", fmtDate(r.check_performed_at), true);
+    kv(dl, "Coverage window", fmtDate(w.start) + " → " + fmtDate(w.end));
+    if (w.duration_hours) kv(dl, "Window", w.duration_hours + " hours");
+    if (r.next_check_due) kv(dl, "Next check due", fmtDate(r.next_check_due));
+
+    var fm = [];
+    if (r.generated_by) fm.push("Generated by " + r.generated_by);
+    if (DATA.collection_metadata && DATA.collection_metadata.collection_method)
+      fm.push(DATA.collection_metadata.collection_method);
+    document.getElementById("foot-meta").textContent = fm.join("  ·  ");
+
+    var slot = document.getElementById("alert-slot"); slot.textContent = "";
+    var st = DATA.summary_statistics || {};
+    if (st.highest_priority_action){
+      var a = el("div","alert");
+      var svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
+      svg.setAttribute("width","17"); svg.setAttribute("height","17");
+      svg.setAttribute("viewBox","0 0 16 16"); svg.setAttribute("fill","none");
+      svg.setAttribute("aria-hidden","true");
+      var p1 = document.createElementNS("http://www.w3.org/2000/svg","path");
+      p1.setAttribute("d","M8 1.6 15 14H1L8 1.6Z");
+      p1.setAttribute("stroke","#FF5A1F"); p1.setAttribute("stroke-width","1.5");
+      p1.setAttribute("stroke-linejoin","round");
+      var p2 = document.createElementNS("http://www.w3.org/2000/svg","path");
+      p2.setAttribute("d","M8 6v3.2"); p2.setAttribute("stroke","#FF5A1F");
+      p2.setAttribute("stroke-width","1.7"); p2.setAttribute("stroke-linecap","round");
+      var c = document.createElementNS("http://www.w3.org/2000/svg","circle");
+      c.setAttribute("cx","8"); c.setAttribute("cy","11.6"); c.setAttribute("r",".95");
+      c.setAttribute("fill","#FF5A1F");
+      svg.appendChild(p1); svg.appendChild(p2); svg.appendChild(c);
+      var box = el("div");
+      box.appendChild(el("p","lbl","Highest priority action"));
+      box.appendChild(el("p", null, st.highest_priority_action));
+      if (st.kev_deadlines_passed_or_due && st.kev_deadlines_passed_or_due.length){
+        var d = el("p", null, "KEV deadlines in scope: " + st.kev_deadlines_passed_or_due.join(", "));
+        d.style.marginTop = "7px"; d.style.fontSize = "13px"; d.style.color = "var(--muted)";
+        d.style.fontFamily = "var(--mono)";
+        box.appendChild(d);
+      }
+      a.appendChild(svg); a.appendChild(box); slot.appendChild(a);
+    }
+  }
+
+  function renderTiles(){
+    var st = DATA.summary_statistics || {}, v = DATA.vulnerabilities || [];
+    var defs = [
+      ["Entries", st.total_entries != null ? st.total_entries : v.length, ""],
+      ["Actively exploited", st.actively_exploited, "hot"],
+      ["KEV listed", st.kev_listed, "warn"],
+      ["No patch", st.no_patch_available, "hot"],
+      ["Partial patch", st.partial_patch_available, "warn"],
+      ["CVEs tracked", st.total_cves_referenced, ""],
+      ["KQL queries", st.total_kql_queries, ""],
+      ["IOCs", st.total_iocs, ""]
+    ];
+    var box = document.getElementById("tiles"); box.textContent = "";
+    defs.forEach(function(d){
+      if (d[1] === undefined || d[1] === null) return;
+      var t = el("div","tile" + (d[2] ? " " + d[2] : ""));
+      t.appendChild(el("span","n", d[1]));
+      t.appendChild(el("span","k", d[0]));
+      box.appendChild(t);
+    });
+  }
+
+  function renderPosture(){
+    var v = DATA.vulnerabilities || [];
+    var order = ["exploited_in_the_wild","exploitation_attempts_reported_unconfirmed",
+                 "public_poc_available","no_known_exploitation"];
+    var counts = {};
+    v.forEach(function(e){ counts[e.exploitation_status] = (counts[e.exploitation_status]||0) + 1; });
+    var present = order.filter(function(k){ return counts[k]; });
+    var box = document.getElementById("posture"); box.textContent = "";
+    if (!present.length || !v.length){ box.hidden = true; return; }
+    box.hidden = false;
+    box.appendChild(el("h2", null, "Exploitation posture across " + v.length + " entries"));
+    var bar = el("div","pbar");
+    present.forEach(function(k){
+      var s = el("div","pseg " + STATUS[k].seg);
+      s.style.flex = counts[k];
+      s.setAttribute("title", STATUS[k].full + ": " + counts[k]);
+      bar.appendChild(s);
+    });
+    box.appendChild(bar);
+    var lg = el("div","plegend");
+    present.forEach(function(k){
+      var s = el("span");
+      s.appendChild(el("i","swatch " + STATUS[k].seg));
+      s.appendChild(el("b", null, counts[k]));
+      s.appendChild(document.createTextNode(STATUS[k].full));
+      lg.appendChild(s);
+    });
+    box.appendChild(lg);
+  }
+
+  /* ---------- render: one entry ---------- */
+  function renderEntry(e){
+    var li = el("li","card");
+    li.setAttribute("data-status", e.exploitation_status || "");
+
+    /* header (button for keyboard access) */
+    var head = el("button","chead");
+    head.type = "button";
+    head.setAttribute("aria-expanded","false");
+    head.appendChild(el("div","rank", e.rank != null ? e.rank : "·"));
+
+    var body = el("div","cbody");
+    body.appendChild(el("h2","ctitle", e.title || "Untitled"));
+
+    var meta = el("div","meta");
+    var S = STATUS[e.exploitation_status];
+    if (S) meta.appendChild(el("span","pill " + S.cls, S.short));
+    if (e.kev_listed) meta.appendChild(el("span","pill kev",
+      "KEV" + (e.kev_due_date ? " · due " + e.kev_due_date : "")));
+    var P = PATCH[e.patch_available];
+    if (P) meta.appendChild(el("span","pill " + P.cls, P.t));
+    if (e.severity) meta.appendChild(el("span","pill plain",
+      label(e.severity) + (e.cvss_v3 != null ? " · CVSS " + e.cvss_v3 : "")));
+    if (e.vendor) meta.appendChild(el("span","pill plain", e.vendor));
+    (e.cve_ids || []).slice(0,4).forEach(function(c){ meta.appendChild(el("span","cve", c)); });
+    if ((e.cve_ids || []).length > 4)
+      meta.appendChild(el("span","cve more", "+" + (e.cve_ids.length - 4) + " more"));
+    body.appendChild(meta);
+    if (e.summary) body.appendChild(el("p","teaser", e.summary));
+    head.appendChild(body);
+
+    var caret = document.createElementNS("http://www.w3.org/2000/svg","svg");
+    caret.setAttribute("class","caret"); caret.setAttribute("width","11");
+    caret.setAttribute("height","11"); caret.setAttribute("viewBox","0 0 12 12");
+    caret.setAttribute("fill","none"); caret.setAttribute("aria-hidden","true");
+    var cp = document.createElementNS("http://www.w3.org/2000/svg","path");
+    cp.setAttribute("d","m3 1 5 5-5 5"); cp.setAttribute("stroke","currentColor");
+    cp.setAttribute("stroke-width","1.8"); cp.setAttribute("stroke-linecap","round");
+    cp.setAttribute("stroke-linejoin","round");
+    caret.appendChild(cp); head.appendChild(caret);
+    li.appendChild(head);
+
+    /* detail */
+    var det = el("div","detail");
+
+    var facts = sec("At a glance");
+    var fl = el("dl","facts");
+    if (e.id) kv(fl, "Entry ID", e.id);
+    if (e.category) kv(fl, "Category", CATEGORY[e.category] || label(e.category));
+    if (S) kv(fl, "Exploitation", S.full);
+    kv(fl, "Patch available", label(e.patch_available));
+    if (e.first_reported) kv(fl, "First reported", e.first_reported);
+    if (e.last_updated) kv(fl, "Last updated", e.last_updated);
+    if (e.confidence) kv(fl, "Entry confidence", label(e.confidence));
+    if (e.kev_due_date) kv(fl, "KEV due date", e.kev_due_date);
+    facts.appendChild(fl);
+    det.appendChild(facts);
+
+    if (e.summary){
+      var s1 = sec("Analyst summary");
+      s1.appendChild(el("p","prose", e.summary));
+      det.appendChild(s1);
+    }
+    if ((e.affected_products || []).length){
+      var s2 = sec("Affected products");
+      var u2 = el("ul","list");
+      e.affected_products.forEach(function(p){ u2.appendChild(el("li", null, p)); });
+      s2.appendChild(u2); det.appendChild(s2);
+    }
+    if ((e.recommended_actions || []).length){
+      var s3 = sec("Recommended actions");
+      var u3 = el("ul","list num");
+      e.recommended_actions.forEach(function(a){ u3.appendChild(el("li", null, a)); });
+      s3.appendChild(u3); det.appendChild(s3);
+    }
+
+    /* KQL */
+    if ((e.kql || []).length){
+      var s4 = sec("Detection — KQL for Sentinel / Defender XDR (" + e.kql.length + ")");
+      e.kql.forEach(function(q){
+        var box = el("div","kql"), h = el("div","kql-head");
+        var kn = el("div","kn");
+        kn.appendChild(el("h4", null, q.name || "Query"));
+        if (q.description) kn.appendChild(el("p", null, q.description));
+        h.appendChild(kn);
+        var plat = el("span","plat",
+          (PLATFORM[q.platform] || q.platform || "") + (q.table ? " · " + q.table : ""));
+        h.appendChild(plat);
+        h.appendChild(copyBtn(function(){ return q.query || ""; }, "Copy KQL"));
+        box.appendChild(h);
+        var pre = el("pre"), code = el("code");
+        code.appendChild(highlight(q.query || ""));
+        pre.appendChild(code); box.appendChild(pre);
+        s4.appendChild(box);
+      });
+      det.appendChild(s4);
+    }
+
+    /* IOCs */
+    var iocs = e.iocs || [];
+    if (iocs.length){
+      var real = iocs.filter(function(i){ return i.type !== "note"; });
+      var notes = iocs.filter(function(i){ return i.type === "note"; });
+      var s5 = sec("Indicators of compromise (" + real.length + ")");
+      if (real.length){
+        s5.querySelector("h3").appendChild(copyBtn(function(){
+          return real.map(function(i){ return i.value; }).join("\n");
+        }, "Copy values"));
+      }
+      notes.forEach(function(n){
+        var np = el("p","note-row", "⚠ " + n.context);
+        np.style.margin = "0 0 13px"; s5.appendChild(np);
+      });
+      if (real.length){
+        var wrap = el("div","tbl-wrap"), tb = el("table");
+        var thead = el("thead"), tr = el("tr");
+        ["Type","Value","Confidence","Context","Source"].forEach(function(h2){
+          tr.appendChild(el("th", null, h2));
+        });
+        thead.appendChild(tr); tb.appendChild(thead);
+        var tbody = el("tbody");
+        real.forEach(function(i){
+          var r = el("tr");
+          r.appendChild(el("td","t", i.type));
+          r.appendChild(el("td","v", i.value));
+          var cd = el("td");
+          cd.appendChild(el("span","cf " + (i.confidence || "low"), i.confidence || "—"));
+          r.appendChild(cd);
+          r.appendChild(el("td","ctx", i.context || "—"));
+          r.appendChild(el("td","src", i.source || "—"));
+          tbody.appendChild(r);
+        });
+        tb.appendChild(tbody); wrap.appendChild(tb); s5.appendChild(wrap);
+      }
+      det.appendChild(s5);
+    }
+
+    if ((e.references || []).length){
+      var s6 = sec("References");
+      var u6 = el("ul","refs");
+      e.references.forEach(function(r){
+        var li6 = el("li"), a = el("a", null, r);
+        a.href = r; a.target = "_blank"; a.rel = "noopener noreferrer";
+        li6.appendChild(a); u6.appendChild(li6);
+      });
+      s6.appendChild(u6); det.appendChild(s6);
+    }
+
+    li.appendChild(det);
+
+    head.addEventListener("click", function(){
+      var open = li.classList.toggle("is-open");
+      head.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+    return li;
+  }
+
+  /* ---------- filtering ---------- */
+  function haystack(e){
+    var parts = [e.title, e.summary, e.vendor, e.id, e.category, e.severity, e.exploitation_status];
+    parts = parts.concat(e.cve_ids || [], e.affected_products || [], e.recommended_actions || []);
+    (e.iocs || []).forEach(function(i){ parts.push(i.value, i.type, i.context); });
+    (e.kql || []).forEach(function(q){ parts.push(q.name, q.table, q.description); });
+    return parts.filter(Boolean).join(" ").toLowerCase();
+  }
+
+  function apply(){
+    var v = DATA.vulnerabilities || [];
+    var q = FILTER.q.trim().toLowerCase();
+    var shown = 0;
+    var list = document.getElementById("entries");
+    Array.prototype.forEach.call(list.children, function(li, idx){
+      var e = v[idx], ok = true;
+      if (FILTER.status !== "all" && e.exploitation_status !== FILTER.status) ok = false;
+      if (ok && FILTER.kev && !e.kev_listed) ok = false;
+      if (ok && FILTER.nopatch && e.patch_available === "yes") ok = false;
+      if (ok && q && li._hay.indexOf(q) === -1) ok = false;
+      li.hidden = !ok;
+      if (ok) shown++;
+    });
+    document.getElementById("count").textContent = shown + " of " + v.length + " shown";
+    document.getElementById("empty").hidden = shown !== 0;
+  }
+
+  function renderChips(){
+    var v = DATA.vulnerabilities || [];
+    var order = ["exploited_in_the_wild","exploitation_attempts_reported_unconfirmed",
+                 "public_poc_available","no_known_exploitation"];
+    var counts = {};
+    v.forEach(function(e){ counts[e.exploitation_status] = (counts[e.exploitation_status]||0)+1; });
+    var box = document.getElementById("status-chips"); box.textContent = "";
+    var defs = [["all","All",v.length]];
+    order.forEach(function(k){ if (counts[k]) defs.push([k, STATUS[k].short, counts[k]]); });
+    defs.forEach(function(d){
+      var b = el("button","chip", d[1] + " (" + d[2] + ")");
+      b.type = "button";
+      b.setAttribute("aria-pressed", FILTER.status === d[0] ? "true" : "false");
+      b.addEventListener("click", function(){
+        FILTER.status = d[0];
+        Array.prototype.forEach.call(box.children, function(c){ c.setAttribute("aria-pressed","false"); });
+        b.setAttribute("aria-pressed","true");
+        apply();
+      });
+      box.appendChild(b);
+    });
+  }
+
+  /* ---------- provenance ---------- */
+  function renderProv(){
+    var cm = DATA.collection_metadata || {};
+    var box = document.getElementById("prov-body"); box.textContent = "";
+    if (cm.collection_method){
+      box.appendChild(el("h4", null, "Collection method"));
+      box.appendChild(el("p","prose", cm.collection_method));
+    }
+    if ((cm.limitations || []).length){
+      box.appendChild(el("h4", null, "Limitations"));
+      var u = el("ul","list");
+      cm.limitations.forEach(function(l){ u.appendChild(el("li", null, l)); });
+      box.appendChild(u);
+    }
+    if (cm.confidence_legend){
+      box.appendChild(el("h4", null, "Confidence legend"));
+      var dl = el("dl");
+      Object.keys(cm.confidence_legend).forEach(function(k){
+        dl.appendChild(el("dt", null, k));
+        dl.appendChild(el("dd", null, cm.confidence_legend[k]));
+      });
+      box.appendChild(dl);
+    }
+    var w = (DATA.report || {}).coverage_window || {};
+    if (w.note){
+      box.appendChild(el("h4", null, "Coverage window note"));
+      box.appendChild(el("p","prose", w.note));
+    }
+    if ((cm.ioc_types_present || []).length){
+      box.appendChild(el("h4", null, "IOC types present"));
+      box.appendChild(el("p","prose", cm.ioc_types_present.join(", ")));
+    }
+  }
+
+  /* ---------- boot ---------- */
+  function render(data){
+    DATA = data;
+    renderHead(); renderTiles(); renderPosture(); renderChips(); renderProv();
+    var list = document.getElementById("entries"); list.textContent = "";
+    (DATA.vulnerabilities || []).forEach(function(e){
+      var li = renderEntry(e);
+      li._hay = haystack(e);
+      list.appendChild(li);
+    });
+    ALL_OPEN = false;
+    document.getElementById("toggle-all").textContent = "Expand all";
+    apply();
+  }
+
+  document.getElementById("q").addEventListener("input", function(ev){
+    FILTER.q = ev.target.value; apply();
+  });
+  ["f-kev","f-nopatch"].forEach(function(id){
+    document.getElementById(id).addEventListener("click", function(){
+      var b = document.getElementById(id);
+      var on = b.getAttribute("aria-pressed") !== "true";
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+      FILTER[id === "f-kev" ? "kev" : "nopatch"] = on;
+      apply();
+    });
+  });
+  document.getElementById("toggle-all").addEventListener("click", function(){
+    ALL_OPEN = !ALL_OPEN;
+    var list = document.getElementById("entries");
+    Array.prototype.forEach.call(list.children, function(li){
+      li.classList.toggle("is-open", ALL_OPEN);
+      var h = li.querySelector(".chead");
+      if (h) h.setAttribute("aria-expanded", ALL_OPEN ? "true" : "false");
+    });
+    this.textContent = ALL_OPEN ? "Collapse all" : "Expand all";
+  });
+
+  /* drag & drop any TI JSON */
+  var dragDepth = 0;
+  window.addEventListener("dragenter", function(ev){ ev.preventDefault(); if (++dragDepth) document.body.classList.add("dragging"); });
+  window.addEventListener("dragover",  function(ev){ ev.preventDefault(); });
+  window.addEventListener("dragleave", function(){ if (--dragDepth <= 0){ dragDepth = 0; document.body.classList.remove("dragging"); } });
+  window.addEventListener("drop", function(ev){
+    ev.preventDefault(); dragDepth = 0; document.body.classList.remove("dragging");
+    var f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+    if (!f) return;
+    var fr = new FileReader();
+    fr.onload = function(){
+      try {
+        var parsed = JSON.parse(fr.result);
+        if (!parsed || !parsed.vulnerabilities) throw new Error("not a TI output config");
+        render(parsed);
+        window.scrollTo(0,0);
+      } catch(err){
+        alert("Could not load that file: " + err.message);
+      }
+    };
+    fr.readAsText(f);
+  });
+
+  /* embedded data first (works offline from file://); refresh from the sibling
+     JSON when served over http(s) so a hosted copy always shows today's feed */
+  var embedded = null;
+  try { embedded = JSON.parse(document.getElementById("ti-data").textContent); } catch(e){}
+  if (embedded && embedded.vulnerabilities) render(embedded);
+
+  if (location.protocol === "http:" || location.protocol === "https:"){
+    fetch("ti-output-config.json", {cache:"no-store"}).then(function(r){
+      return r.ok ? r.json() : null;
+    }).then(function(j){
+      if (j && j.vulnerabilities){
+        var a = (j.report||{}).check_performed_at, b = (embedded&&embedded.report||{}).check_performed_at;
+        if (a !== b) render(j);
+      }
+    }).catch(function(){ /* offline or no sibling file - embedded copy stands */ });
+  }
+})();
+</script>
+</body>
+</html>
