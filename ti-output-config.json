@@ -3,18 +3,18 @@
   "feed_id": "ti-daily-top10",
   "feed_name": "Daily Threat Intelligence Output - Top 10 Vulnerabilities and Cyber Incidents",
   "report": {
-    "check_performed_at": "2026-10-15T12:00:00Z",
-    "check_performed_at_local": "2026-10-15",
+    "check_performed_at": "2026-10-16T12:00:00Z",
+    "check_performed_at_local": "2026-10-16",
     "timezone": "UTC",
     "coverage_window": {
-      "start": "2026-10-14T12:00:00Z",
-      "end": "2026-10-15T12:00:00Z",
+      "start": "2026-10-15T12:00:00Z",
+      "end": "2026-10-16T12:00:00Z",
       "duration_hours": 24.0,
-      "note": "UK-focused run (UK government first, then UK corporates). No new UK government incident first reported inside the window was found. New inside/near window: Ivanti Connect Secure chained zero-days (CISA KEV 13 Oct), CISA KEV additions of 14 Oct (PAN-OS, Cisco SEG, Ahsay), H&M ShinyHunters claims, and TFG London/ASOS updates. NetScaler, FortiBleed and the Iran-linked generator incident are carry-overs. Fewer than 10 entries are reported rather than padding with items lacking UK relevance."
+      "note": "UK-focused run (UK government first, then UK corporates). New inside/near window: Legal Aid Agency (MoJ) breach scope update of 14 Oct, Bristol council schools second attack, Bromcom SSO breach reporting. Citrix NetScaler, Ivanti, CISA KEV 14 Oct, FortiBleed, TFG London/ASOS/H&M and the Iran-linked generator incident are carry-overs. No new CISA KEV additions dated 15 Oct were found."
     },
-    "entry_count": 7,
+    "entry_count": 10,
     "generated_by": "scheduled-claude-research",
-    "next_check_due": "2026-10-16T12:00:00Z"
+    "next_check_due": "2026-10-17T12:00:00Z"
   },
   "collection_metadata": {
     "collection_method": "open-source web search aggregation (search snippets only)",
@@ -25,7 +25,8 @@
       "KQL queries are untested hunting starting points; validate table availability and tune before use.",
       "Citrix indicator values are relayed from secondary sources; use vendor IoC tooling for full lists.",
       "2026-10-14 run: only search-result summaries were used; ASOS details (Xuanyewen/Simon AI/Snowflake claims, record counts) differ between outlets and are unverified.",
-      "2026-10-15 run: search-result summaries only; CVE-2026-0322 and the Ivanti/Ahsay details could not be verified against vendor or CISA primary pages; dates in some results were unreliable."
+      "2026-10-15 run: search-result summaries only; CVE-2026-0322 and the Ivanti/Ahsay details could not be verified against vendor or CISA primary pages; dates in some results were unreliable.",
+      "2026-10-16 run: search-result summaries only (page fetches blocked); Legal Aid, Bristol and Bromcom details are secondary-source and unverified; no new UK government incident first reported inside the window was confirmed."
     ],
     "confidence_legend": {
       "high": "Corroborated by the vendor advisory or by multiple independent reputable sources.",
@@ -51,8 +52,172 @@
   },
   "vulnerabilities": [
     {
-      "rank": 1,
-      "id": "TI-2026-10-15-001",
+      "id": "TI-2026-10-16-001",
+      "title": "Legal Aid Agency (MoJ) Breach Scope Widened - Records Back to 1978 and HMPPS Probation Data Found in Stolen Set",
+      "cve_ids": [],
+      "vendor": "UK Ministry of Justice / Legal Aid Agency",
+      "affected_products": [
+        "Legal Aid Agency online services (2025 intrusion)"
+      ],
+      "category": "incident",
+      "cvss_v3": null,
+      "severity": "high",
+      "exploitation_status": "exploited_in_the_wild",
+      "kev_listed": false,
+      "kev_due_date": null,
+      "patch_available": "partial",
+      "first_reported": "2025-05-01",
+      "last_updated": "2026-10-14",
+      "confidence": "medium",
+      "summary": "UK central government. Per an agency update dated 2026-10-14 reported by CyberSecurityNews and GBHackers, forensic review of the 2025 Legal Aid Agency (Ministry of Justice) breach found the exfiltrated data goes further back than first disclosed: about 250,000 records pre-date 2007 and the earliest verified record is from 1978. Investigators also found probation data from HM Prison and Probation Service (HMPPS) in the stolen material. The agency states it has no indication the data has been published or shared. This is a scope update to an older incident rather than a new intrusion, but it materially raises the sensitivity (applicants, defendants, probation subjects) and is the most significant UK government item found in the window. Details come from secondary reporting; the primary agency/MoJ notice could not be fetched.",
+      "recommended_actions": [
+        "Organisations that supply or share data with MoJ/LAA should check for notifications and prepare for phishing and fraud aimed at affected individuals.",
+        "Monitor leak sites and dark-web markets for LAA/HMPPS-related data.",
+        "Review third-party and legacy-data retention: purge or archive-isolate pre-2007 records where legally possible.",
+        "Brief helpdesks on social-engineering using legal-aid or probation context."
+      ],
+      "kql": [
+        {
+          "platform": "sentinel",
+          "table": "EmailEvents",
+          "name": "Phishing themed on Legal Aid / probation data breach",
+          "description": "Hunts inbound mail using breach-themed lures. Tune keywords.",
+          "query": "EmailEvents\n| where Timestamp > ago(7d)\n| where Subject has_any (\"Legal Aid Agency\",\"legal aid\",\"HMPPS\",\"probation\",\"data breach notification\")\n| where SenderFromDomain !endswith \"justice.gov.uk\" and SenderFromDomain !endswith \"gov.uk\"\n| project Timestamp, SenderFromAddress, RecipientEmailAddress, Subject, UrlCount, AttachmentCount"
+        }
+      ],
+      "iocs": [
+        {
+          "type": "note",
+          "value": "No technical indicators published for this scope update.",
+          "context": "Provenance statement, not an indicator.",
+          "confidence": "high"
+        },
+        {
+          "type": "ttp",
+          "value": "Data exfiltration of legacy case records; follow-on fraud/phishing against affected individuals",
+          "context": "Expected downstream abuse of stolen legal-aid and probation data.",
+          "confidence": "low",
+          "source": "analyst assessment"
+        }
+      ],
+      "references": [
+        "https://cybersecuritynews.com/uk-legal-aid-agency-data-breach",
+        "https://gbhackers.com/uk-legal-aid-cyberattack"
+      ],
+      "rank": 1
+    },
+    {
+      "rank": 2,
+      "id": "TI-2026-10-16-002",
+      "title": "Carry-over: 'FortiBleed' - Stolen Fortinet Firewall Credentials Include UK Government, Embassy, Council and NHS Accounts Offered for Sale",
+      "cve_ids": [],
+      "vendor": "Fortinet (appliances); actor unattributed",
+      "affected_products": [
+        "Fortinet FortiGate appliances (reported ~70,000-86,000 devices / credential sets, 194 countries)"
+      ],
+      "category": "threat_actor_campaign",
+      "cvss_v3": null,
+      "severity": "high",
+      "exploitation_status": "exploitation_attempts_reported_unconfirmed",
+      "kev_listed": false,
+      "kev_due_date": null,
+      "patch_available": "partial",
+      "first_reported": "2026-07-05",
+      "last_updated": "2026-10-15",
+      "confidence": "low",
+      "summary": "No new development found in the 2026-10-15 window (carry-over). Telegraph-led reporting from July 2026 says Russian-speaking actors harvested credentials from tens of thousands of Fortinet firewalls ('FortiBleed'); leaked/for-sale lists reportedly include IT staff at UK embassies (Thailand, Mauritius), local-authority staff (Derbyshire, Waltham Forest), and NHS, energy and medicine-supplier logins, with access priced up to ~$60,000. Counts vary by source (SOCRadar: 86,644 credentials). No formal state attribution and no NCSC/Fortinet PSIRT/CISA confirmation was found. This is NOT new in the 24h window - no fresh development was found - and is carried only because it is the most UK-government-specific credential exposure identified. Confidence is low; treat as a lead for credential rotation and exposure review.",
+      "recommended_actions": [
+        "Rotate all credentials and secrets on FortiGate devices and any accounts authenticating through them; invalidate VPN sessions.",
+        "Patch FortiOS to the latest release and review for unknown admin accounts, config changes and exposed management interfaces.",
+        "Check dark-web/credential-leak monitoring for your domains."
+      ],
+      "kql": [
+        {
+          "platform": "sentinel",
+          "table": "CommonSecurityLog",
+          "name": "Fortinet - new admin accounts or config changes",
+          "description": "Detects admin/user creation and configuration changes in FortiGate CEF logs.",
+          "query": "CommonSecurityLog\n| where TimeGenerated > ago(30d)\n| where DeviceVendor == \"Fortinet\"\n| where Activity has_any (\"Add admin\",\"Add user\",\"Edit admin\",\"Configuration changed\",\"Attribute configured\") or AdditionalExtensions has \"cfgpath\"\n| project TimeGenerated, DeviceName, SourceIP, SourceUserName, Activity, Message\n| sort by TimeGenerated desc"
+        }
+      ],
+      "iocs": [
+        {
+          "type": "actor",
+          "value": "Russian-speaking threat actors (unattributed)",
+          "context": "Per press reporting; no formal attribution.",
+          "confidence": "low",
+          "source": "Telegraph (as relayed)"
+        },
+        {
+          "type": "note",
+          "value": "No technical indicators identified for FortiBleed in this run.",
+          "context": "Provenance statement - filter before ingestion.",
+          "confidence": "high",
+          "source": "analyst note"
+        }
+      ],
+      "references": [
+        "https://henryjacksonsociety.org/2026/07/08/russian-hackers-steal-british-government-credentials/",
+        "https://www.insurancebusinessmag.com/uk/news/cyber/russian-hackers-expose-uk-government-logins-in-fortibleed-credential-breach-581332.aspx",
+        "https://www.sofx.com/russian-hackers-put-uk-government-and-nhs-logins-up-for-sale-on-dark-web/"
+      ]
+    },
+    {
+      "id": "TI-2026-10-16-003",
+      "title": "Council Schools IT Network Hit by Second Cyber Attack - Records Exported (Bristol)",
+      "cve_ids": [],
+      "vendor": "Local authority schools network",
+      "affected_products": [
+        "Primary school / council-run IT network"
+      ],
+      "category": "incident",
+      "cvss_v3": null,
+      "severity": "medium",
+      "exploitation_status": "exploited_in_the_wild",
+      "kev_listed": false,
+      "kev_due_date": null,
+      "patch_available": "no",
+      "first_reported": "2026-09-21",
+      "last_updated": "2026-10-15",
+      "confidence": "low",
+      "summary": "Bristol24/7 reports a primary school served by a council schools IT network suffered a second cyber attack, with records exported in a data breach. Suspicious activity was spotted on 21 September when the first attack hit, but the network was not shut down until 25 September, which opposition councillors called 'very worrying'. The same actors are believed responsible for both attacks, though this is unconfirmed. Local-authority education is a recurring UK public-sector target. Single-source, secondary summary; scope and actor unconfirmed.",
+      "recommended_actions": [
+        "Local authorities and MATs: review containment timelines and isolate school networks faster on suspicious activity.",
+        "Reset credentials after a first incident and confirm persistence is removed before restoring service.",
+        "Report to ICO, DfE and NCSC as required; check backups for offline copies."
+      ],
+      "kql": [
+        {
+          "platform": "defender_xdr",
+          "table": "DeviceNetworkEvents",
+          "name": "Large outbound transfers to file-sharing/cloud storage from school servers",
+          "description": "Exfiltration hunt; tune hostnames and thresholds.",
+          "query": "DeviceNetworkEvents\n| where Timestamp > ago(14d)\n| where RemoteUrl has_any (\"mega.nz\",\"mega.io\",\"anonfiles\",\"transfer.sh\",\"file.io\")\n| summarize Hits=count(), Hosts=dcount(DeviceName) by RemoteUrl, InitiatingProcessFileName\n| order by Hits desc"
+        }
+      ],
+      "iocs": [
+        {
+          "type": "note",
+          "value": "No technical indicators published.",
+          "context": "Provenance statement, not an indicator.",
+          "confidence": "high"
+        },
+        {
+          "type": "ttp",
+          "value": "Repeat intrusion with data exfiltration after delayed containment",
+          "context": "Reported pattern for the schools network.",
+          "confidence": "low",
+          "source": "bristol247.com"
+        }
+      ],
+      "references": [
+        "https://bristol247.com/news-and-features/news/primary-school-hit-by-second-cyber-attack-as-records-exported-in-data-breach"
+      ],
+      "rank": 3
+    },
+    {
+      "rank": 4,
+      "id": "TI-2026-10-16-004",
       "title": "Citrix NetScaler ADC/Gateway Zero-Days Under Active Exploitation - NCSC and NHS England Alerts; UK Follow-on SAML Flaw Pending (CVE-2026-88771, CVE-2026-88772, CVE-2026-107406)",
       "cve_ids": [
         "CVE-2026-88771",
@@ -163,8 +328,8 @@
       ]
     },
     {
-      "rank": 2,
-      "id": "TI-2026-10-15-002",
+      "rank": 5,
+      "id": "TI-2026-10-16-005",
       "title": "Ivanti Connect Secure Chained Zero-Days (Auth Bypass + RCE + Root Privilege Escalation) Exploited by UTA0576 - Added to CISA KEV (CVE-2026-104935)",
       "cve_ids": [
         "CVE-2026-104935"
@@ -236,8 +401,76 @@
       ]
     },
     {
-      "rank": 3,
-      "id": "TI-2026-10-15-003",
+      "rank": 6,
+      "id": "TI-2026-10-16-006",
+      "title": "CISA KEV Additions 2026-10-14: PAN-OS, Cisco Secure Email Gateway and Ahsay AhsayCBS Chain Exploited (CVE-2026-0322, CVE-2026-76519, CVE-2026-105133, CVE-2026-105134)",
+      "cve_ids": [
+        "CVE-2026-0322",
+        "CVE-2026-76519",
+        "CVE-2026-105133",
+        "CVE-2026-105134"
+      ],
+      "vendor": "Palo Alto Networks / Cisco / Ahsay",
+      "affected_products": [
+        "Palo Alto Networks PAN-OS",
+        "Cisco Secure Email Gateway",
+        "Ahsay AhsayCBS (backup server)"
+      ],
+      "category": "vulnerability_bundle",
+      "cvss_v3": null,
+      "severity": "high",
+      "exploitation_status": "exploited_in_the_wild",
+      "kev_listed": true,
+      "kev_due_date": null,
+      "patch_available": "partial",
+      "first_reported": "2026-10-14",
+      "last_updated": "2026-10-15",
+      "confidence": "low",
+      "summary": "CISA added four vulnerabilities to KEV on 2026-10-14 on evidence of active exploitation: CVE-2026-0322 (PAN-OS code injection), CVE-2026-76519 (Cisco Secure Email Gateway relative path traversal), and CVE-2026-105133/CVE-2026-105134 (AhsayCBS authentication bypass in the API component chained with command injection). No detailed exploitation reporting, federal due dates or UK victim data were found, and CVE-2026-0322 could not be corroborated beyond the CISA listing (a separate 2026 PAN-OS flaw, CVE-2026-0300, was exploited by suspected state actors from April). No NCSC alert was found. These products are common in UK public sector and MSP estates (firewalls, mail gateways, backup servers), so this is included as an inventory-and-patch priority rather than a confirmed UK incident.",
+      "recommended_actions": [
+        "Inventory PAN-OS, Cisco SEG and AhsayCBS exposure; apply vendor fixes and check internet exposure of management/API interfaces.",
+        "Treat AhsayCBS as high risk: it holds backups and can be chained pre-auth to command execution.",
+        "Check CISA KEV entries for due dates and vendor advisories for fixed versions."
+      ],
+      "kql": [
+        {
+          "platform": "defender_xdr",
+          "table": "DeviceProcessEvents",
+          "name": "Ahsay AhsayCBS spawning shells",
+          "description": "Detects command execution from the AhsayCBS Java process.",
+          "query": "DeviceProcessEvents\n| where Timestamp > ago(14d)\n| where InitiatingProcessFileName in~ (\"java.exe\",\"java\") and InitiatingProcessCommandLine has_any (\"cbs\",\"Ahsay\")\n| where FileName in~ (\"cmd.exe\",\"powershell.exe\",\"sh\",\"bash\")\n| project Timestamp, DeviceName, InitiatingProcessCommandLine, ProcessCommandLine"
+        },
+        {
+          "platform": "sentinel",
+          "table": "CommonSecurityLog",
+          "name": "PAN-OS - system/config events from management plane",
+          "description": "Config and admin changes on Palo Alto devices.",
+          "query": "CommonSecurityLog\n| where TimeGenerated > ago(14d)\n| where DeviceVendor == \"Palo Alto Networks\" and Activity has_any (\"config\",\"SYSTEM\")\n| project TimeGenerated, DeviceName, SourceIP, Activity, Message"
+        }
+      ],
+      "iocs": [
+        {
+          "type": "malware",
+          "value": "None published",
+          "context": "No indicators available for these KEV additions.",
+          "confidence": "low",
+          "source": "CISA KEV listing"
+        },
+        {
+          "type": "note",
+          "value": "No technical indicators identified; CVE-2026-0322 unverified beyond the CISA listing as relayed by search.",
+          "context": "Provenance statement - filter before ingestion.",
+          "confidence": "high",
+          "source": "analyst note"
+        }
+      ],
+      "references": [
+        "https://www.cisa.gov/news-events/alerts/2026/10/14/cisa-adds-four-known-exploited-vulnerabilities-catalog"
+      ]
+    },
+    {
+      "rank": 7,
+      "id": "TI-2026-10-16-007",
       "title": "TFG London (Hobbs, Whistles, Phase Eight) Cyber Incident Disrupts UK Retail IT Systems; Second UK Retailer Incident in a Week",
       "cve_ids": [],
       "vendor": "The Foschini Group (TFG London)",
@@ -294,8 +527,8 @@
       ]
     },
     {
-      "rank": 4,
-      "id": "TI-2026-10-15-004",
+      "rank": 8,
+      "id": "TI-2026-10-16-008",
       "title": "ASOS Breach and H&M 'ShinyHunters' Claims - UK Retail Third-Party Platform Compromise Wave (ASOS, TFG London, H&M)",
       "cve_ids": [],
       "vendor": "ASOS",
@@ -369,132 +602,62 @@
       ]
     },
     {
-      "rank": 5,
-      "id": "TI-2026-10-15-005",
-      "title": "CISA KEV Additions 2026-10-14: PAN-OS, Cisco Secure Email Gateway and Ahsay AhsayCBS Chain Exploited (CVE-2026-0322, CVE-2026-76519, CVE-2026-105133, CVE-2026-105134)",
-      "cve_ids": [
-        "CVE-2026-0322",
-        "CVE-2026-76519",
-        "CVE-2026-105133",
-        "CVE-2026-105134"
-      ],
-      "vendor": "Palo Alto Networks / Cisco / Ahsay",
-      "affected_products": [
-        "Palo Alto Networks PAN-OS",
-        "Cisco Secure Email Gateway",
-        "Ahsay AhsayCBS (backup server)"
-      ],
-      "category": "vulnerability_bundle",
-      "cvss_v3": null,
-      "severity": "high",
-      "exploitation_status": "exploited_in_the_wild",
-      "kev_listed": true,
-      "kev_due_date": null,
-      "patch_available": "partial",
-      "first_reported": "2026-10-14",
-      "last_updated": "2026-10-15",
-      "confidence": "low",
-      "summary": "CISA added four vulnerabilities to KEV on 2026-10-14 on evidence of active exploitation: CVE-2026-0322 (PAN-OS code injection), CVE-2026-76519 (Cisco Secure Email Gateway relative path traversal), and CVE-2026-105133/CVE-2026-105134 (AhsayCBS authentication bypass in the API component chained with command injection). No detailed exploitation reporting, federal due dates or UK victim data were found, and CVE-2026-0322 could not be corroborated beyond the CISA listing (a separate 2026 PAN-OS flaw, CVE-2026-0300, was exploited by suspected state actors from April). No NCSC alert was found. These products are common in UK public sector and MSP estates (firewalls, mail gateways, backup servers), so this is included as an inventory-and-patch priority rather than a confirmed UK incident.",
-      "recommended_actions": [
-        "Inventory PAN-OS, Cisco SEG and AhsayCBS exposure; apply vendor fixes and check internet exposure of management/API interfaces.",
-        "Treat AhsayCBS as high risk: it holds backups and can be chained pre-auth to command execution.",
-        "Check CISA KEV entries for due dates and vendor advisories for fixed versions."
-      ],
-      "kql": [
-        {
-          "platform": "defender_xdr",
-          "table": "DeviceProcessEvents",
-          "name": "Ahsay AhsayCBS spawning shells",
-          "description": "Detects command execution from the AhsayCBS Java process.",
-          "query": "DeviceProcessEvents\n| where Timestamp > ago(14d)\n| where InitiatingProcessFileName in~ (\"java.exe\",\"java\") and InitiatingProcessCommandLine has_any (\"cbs\",\"Ahsay\")\n| where FileName in~ (\"cmd.exe\",\"powershell.exe\",\"sh\",\"bash\")\n| project Timestamp, DeviceName, InitiatingProcessCommandLine, ProcessCommandLine"
-        },
-        {
-          "platform": "sentinel",
-          "table": "CommonSecurityLog",
-          "name": "PAN-OS - system/config events from management plane",
-          "description": "Config and admin changes on Palo Alto devices.",
-          "query": "CommonSecurityLog\n| where TimeGenerated > ago(14d)\n| where DeviceVendor == \"Palo Alto Networks\" and Activity has_any (\"config\",\"SYSTEM\")\n| project TimeGenerated, DeviceName, SourceIP, Activity, Message"
-        }
-      ],
-      "iocs": [
-        {
-          "type": "malware",
-          "value": "None published",
-          "context": "No indicators available for these KEV additions.",
-          "confidence": "low",
-          "source": "CISA KEV listing"
-        },
-        {
-          "type": "note",
-          "value": "No technical indicators identified; CVE-2026-0322 unverified beyond the CISA listing as relayed by search.",
-          "context": "Provenance statement - filter before ingestion.",
-          "confidence": "high",
-          "source": "analyst note"
-        }
-      ],
-      "references": [
-        "https://www.cisa.gov/news-events/alerts/2026/10/14/cisa-adds-four-known-exploited-vulnerabilities-catalog"
-      ]
-    },
-    {
-      "rank": 6,
-      "id": "TI-2026-10-15-006",
-      "title": "Carry-over: 'FortiBleed' - Stolen Fortinet Firewall Credentials Include UK Government, Embassy, Council and NHS Accounts Offered for Sale",
+      "id": "TI-2026-10-16-009",
+      "title": "Bromcom (UK School MIS Supplier) Breach of Legacy SSO Registration Service - Email Addresses Exposed",
       "cve_ids": [],
-      "vendor": "Fortinet (appliances); actor unattributed",
+      "vendor": "Bromcom",
       "affected_products": [
-        "Fortinet FortiGate appliances (reported ~70,000-86,000 devices / credential sets, 194 countries)"
+        "Bromcom Communication Server legacy SSO registration functionality"
       ],
-      "category": "threat_actor_campaign",
+      "category": "incident",
       "cvss_v3": null,
-      "severity": "high",
-      "exploitation_status": "exploitation_attempts_reported_unconfirmed",
+      "severity": "medium",
+      "exploitation_status": "exploited_in_the_wild",
       "kev_listed": false,
       "kev_due_date": null,
-      "patch_available": "partial",
-      "first_reported": "2026-07-05",
+      "patch_available": "yes",
+      "first_reported": "2026-10-07",
       "last_updated": "2026-10-15",
-      "confidence": "low",
-      "summary": "No new development found in the 2026-10-15 window (carry-over). Telegraph-led reporting from July 2026 says Russian-speaking actors harvested credentials from tens of thousands of Fortinet firewalls ('FortiBleed'); leaked/for-sale lists reportedly include IT staff at UK embassies (Thailand, Mauritius), local-authority staff (Derbyshire, Waltham Forest), and NHS, energy and medicine-supplier logins, with access priced up to ~$60,000. Counts vary by source (SOCRadar: 86,644 credentials). No formal state attribution and no NCSC/Fortinet PSIRT/CISA confirmation was found. This is NOT new in the 24h window - no fresh development was found - and is carried only because it is the most UK-government-specific credential exposure identified. Confidence is low; treat as a lead for credential rotation and exposure review.",
+      "confidence": "medium",
+      "summary": "The Register and SC Media report Bromcom notified customers of a personal data breach in its single sign-on technology. Exposed: email addresses linked to SSO registrations, identity provider used (Microsoft/Google), registration and last sign-in dates and internal reference numbers. No passwords or tokens were held and no access to Microsoft or Google accounts was enabled; no evidence the MIS was compromised. Bromcom identified the incident on 6 September after SSO access problems, withdrew the legacy functionality (still called by an internal system) and has engaged forensic specialists. Relevant to UK schools and academy trusts that are public-sector bodies; main risk is targeted phishing of school staff and parents. Secondary reporting only.",
       "recommended_actions": [
-        "Rotate all credentials and secrets on FortiGate devices and any accounts authenticating through them; invalidate VPN sessions.",
-        "Patch FortiOS to the latest release and review for unknown admin accounts, config changes and exposed management interfaces.",
-        "Check dark-web/credential-leak monitoring for your domains."
+        "Schools/trusts using Bromcom: await customer notification, warn staff about targeted phishing using SSO/MIS context.",
+        "Enforce MFA on Microsoft/Google tenants linked to SSO.",
+        "Report to ICO if personal data of pupils or staff is confirmed affected."
       ],
       "kql": [
         {
           "platform": "sentinel",
-          "table": "CommonSecurityLog",
-          "name": "Fortinet - new admin accounts or config changes",
-          "description": "Detects admin/user creation and configuration changes in FortiGate CEF logs.",
-          "query": "CommonSecurityLog\n| where TimeGenerated > ago(30d)\n| where DeviceVendor == \"Fortinet\"\n| where Activity has_any (\"Add admin\",\"Add user\",\"Edit admin\",\"Configuration changed\",\"Attribute configured\") or AdditionalExtensions has \"cfgpath\"\n| project TimeGenerated, DeviceName, SourceIP, SourceUserName, Activity, Message\n| sort by TimeGenerated desc"
+          "table": "SigninLogs",
+          "name": "Sign-ins from new locations for school SSO-linked accounts",
+          "description": "Spots credential abuse following SSO email exposure.",
+          "query": "SigninLogs\n| where TimeGenerated > ago(14d)\n| where ResultType == 0\n| summarize Countries=make_set(tostring(LocationDetails.countryOrRegion)), Ips=dcount(IPAddress) by UserPrincipalName\n| where array_length(Countries) > 2 or Ips > 10"
         }
       ],
       "iocs": [
         {
-          "type": "actor",
-          "value": "Russian-speaking threat actors (unattributed)",
-          "context": "Per press reporting; no formal attribution.",
-          "confidence": "low",
-          "source": "Telegraph (as relayed)"
+          "type": "note",
+          "value": "No technical indicators published.",
+          "context": "Provenance statement, not an indicator.",
+          "confidence": "high"
         },
         {
-          "type": "note",
-          "value": "No technical indicators identified for FortiBleed in this run.",
-          "context": "Provenance statement - filter before ingestion.",
-          "confidence": "high",
-          "source": "analyst note"
+          "type": "ttp",
+          "value": "Phishing targeting SSO-registered school staff/parents",
+          "context": "Likely downstream abuse of exposed email addresses.",
+          "confidence": "low",
+          "source": "analyst assessment"
         }
       ],
       "references": [
-        "https://henryjacksonsociety.org/2026/07/08/russian-hackers-steal-british-government-credentials/",
-        "https://www.insurancebusinessmag.com/uk/news/cyber/russian-hackers-expose-uk-government-logins-in-fortibleed-credential-breach-581332.aspx",
-        "https://www.sofx.com/russian-hackers-put-uk-government-and-nhs-logins-up-for-sale-on-dark-web/"
-      ]
+        "https://www.theregister.com/a/5301156",
+        "https://www.scworld.com/brief/bromcom-notifies-customers-of-personal-data-breach-affecting-sso-technology"
+      ],
+      "rank": 9
     },
     {
-      "rank": 7,
-      "id": "TI-2026-10-15-007",
+      "rank": 10,
+      "id": "TI-2026-10-16-010",
       "title": "Carry-over: Iran-Linked Cyberattack Reportedly Took Small UK Power Generator Offline for Four Days (July 2026, disclosed August)",
       "cve_ids": [],
       "vendor": "Unnamed UK energy generator",
@@ -551,7 +714,7 @@
     "filepath": [
       {
         "value": "/vpn/scripts/linux/nsgclient18.deb",
-        "related_entry": "TI-2026-10-15-001",
+        "related_entry": "TI-2026-10-16-004",
         "related_cves": [
           "CVE-2026-88771",
           "CVE-2026-88772",
@@ -561,7 +724,7 @@
       },
       {
         "value": "/vpn/scripts/linux/nsg64.deb",
-        "related_entry": "TI-2026-10-15-001",
+        "related_entry": "TI-2026-10-16-004",
         "related_cves": [
           "CVE-2026-88771",
           "CVE-2026-88772",
@@ -571,7 +734,7 @@
       },
       {
         "value": "/var/netscaler/logon/LogonPoint/custom/.ctxs.receiver",
-        "related_entry": "TI-2026-10-15-001",
+        "related_entry": "TI-2026-10-16-004",
         "related_cves": [
           "CVE-2026-88771",
           "CVE-2026-88772",
@@ -583,7 +746,7 @@
     "malware": [
       {
         "value": "Platypus",
-        "related_entry": "TI-2026-10-15-001",
+        "related_entry": "TI-2026-10-16-004",
         "related_cves": [
           "CVE-2026-88771",
           "CVE-2026-88772",
@@ -593,7 +756,7 @@
       },
       {
         "value": "WHIPSHOT (PHP webshell); SLAPSHOT (Python tunneller)",
-        "related_entry": "TI-2026-10-15-001",
+        "related_entry": "TI-2026-10-16-004",
         "related_cves": [
           "CVE-2026-88771",
           "CVE-2026-88772",
@@ -603,7 +766,7 @@
       },
       {
         "value": "None published",
-        "related_entry": "TI-2026-10-15-005",
+        "related_entry": "TI-2026-10-16-006",
         "related_cves": [
           "CVE-2026-0322",
           "CVE-2026-76519",
@@ -616,7 +779,7 @@
     "actor": [
       {
         "value": "UTA0576",
-        "related_entry": "TI-2026-10-15-002",
+        "related_entry": "TI-2026-10-16-005",
         "related_cves": [
           "CVE-2026-104935"
         ],
@@ -624,31 +787,31 @@
       },
       {
         "value": "ShinyHunters (unconfirmed attribution)",
-        "related_entry": "TI-2026-10-15-003",
+        "related_entry": "TI-2026-10-16-007",
         "related_cves": [],
         "confidence": "low"
       },
       {
         "value": "Xuanyewen (self-described)",
-        "related_entry": "TI-2026-10-15-004",
+        "related_entry": "TI-2026-10-16-008",
         "related_cves": [],
         "confidence": "low"
       },
       {
         "value": "ShinyHunters (claimed, unconfirmed)",
-        "related_entry": "TI-2026-10-15-004",
+        "related_entry": "TI-2026-10-16-008",
         "related_cves": [],
         "confidence": "low"
       },
       {
         "value": "Russian-speaking threat actors (unattributed)",
-        "related_entry": "TI-2026-10-15-006",
+        "related_entry": "TI-2026-10-16-002",
         "related_cves": [],
         "confidence": "low"
       },
       {
         "value": "Iran-linked actor (unattributed officially)",
-        "related_entry": "TI-2026-10-15-007",
+        "related_entry": "TI-2026-10-16-010",
         "related_cves": [],
         "confidence": "low"
       }
@@ -656,7 +819,7 @@
     "ttp": [
       {
         "value": "Chained auth bypass + RCE + local privilege escalation on VPN appliance",
-        "related_entry": "TI-2026-10-15-002",
+        "related_entry": "TI-2026-10-16-005",
         "related_cves": [
           "CVE-2026-104935"
         ],
@@ -664,25 +827,25 @@
       },
       {
         "value": "Credential stuffing / account takeover using reused credentials",
-        "related_entry": "TI-2026-10-15-004",
+        "related_entry": "TI-2026-10-16-008",
         "related_cves": [],
         "confidence": "low"
       }
     ]
   },
   "summary_statistics": {
-    "total_entries": 7,
-    "actively_exploited": 3,
+    "total_entries": 10,
+    "actively_exploited": 6,
     "kev_listed": 3,
     "no_patch_available": 3,
     "partial_patch_available": 3,
     "total_cves_referenced": 8,
-    "total_kql_queries": 11,
-    "total_iocs": 21,
+    "total_kql_queries": 14,
+    "total_iocs": 17,
     "kev_deadlines_passed_or_due": [
       "2026-09-30",
       "2026-10-16"
     ],
-    "highest_priority_action": "Patch/rebuild internet-facing Citrix NetScaler (mass exploitation, public PoC) and Ivanti Connect Secure (KEV due 2026-10-16); review third-party messaging/SaaS access after the ASOS/TFG/H&M retail wave."
+    "highest_priority_action": "Patch/rebuild internet-facing Citrix NetScaler (mass exploitation, public PoC) and Ivanti Connect Secure; prepare for phishing following the widened Legal Aid Agency/HMPPS data exposure; review third-party SaaS/SSO access after the retail and Bromcom incidents."
   }
 }
