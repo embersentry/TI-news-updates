@@ -3,18 +3,18 @@
   "feed_id": "ti-daily-top10",
   "feed_name": "Daily Threat Intelligence Output - Top 10 Vulnerabilities and Cyber Incidents",
   "report": {
-    "check_performed_at": "2026-10-17T12:00:00Z",
-    "check_performed_at_local": "2026-10-17",
+    "check_performed_at": "2026-10-18T12:00:00Z",
+    "check_performed_at_local": "2026-10-18",
     "timezone": "UTC",
     "coverage_window": {
-      "start": "2026-10-16T12:00:00Z",
-      "end": "2026-10-17T12:00:00Z",
+      "start": "2026-10-17T12:00:00Z",
+      "end": "2026-10-18T12:00:00Z",
       "duration_hours": 24.0,
-      "note": "UK-focused run (UK government first, then UK corporates). New inside window: CISA KEV addition of BeyondTrust Remote Support CVE-2026-102764 (16 Oct). No new UK government incident first reported in the window was found; remaining entries (Legal Aid Agency/HMPPS, FortiBleed, Bristol schools, Citrix NetScaler, Ivanti, CISA KEV 14 Oct, TFG London/ASOS/H&M, Bromcom) are carry-overs. The Iran-linked generator item was dropped."
+      "note": "UK-focused run (UK government first, then UK corporates). Searches found no new UK government or UK corporate incident and no new CISA KEV addition first reported inside the window (weekend). All entries are carry-overs from the 2026-10-17 run, re-ranked unchanged."
     },
     "entry_count": 10,
     "generated_by": "scheduled-claude-research",
-    "next_check_due": "2026-10-18T12:00:00Z"
+    "next_check_due": "2026-10-19T12:00:00Z"
   },
   "collection_metadata": {
     "collection_method": "open-source web search aggregation (search snippets only)",
@@ -27,7 +27,8 @@
       "2026-10-14 run: only search-result summaries were used; ASOS details (Xuanyewen/Simon AI/Snowflake claims, record counts) differ between outlets and are unverified.",
       "2026-10-15 run: search-result summaries only; CVE-2026-0322 and the Ivanti/Ahsay details could not be verified against vendor or CISA primary pages; dates in some results were unreliable.",
       "2026-10-16 run: search-result summaries only (page fetches blocked); Legal Aid, Bristol and Bromcom details are secondary-source and unverified; no new UK government incident first reported inside the window was confirmed.",
-      "2026-10-17 run: search-result summaries only; BeyondTrust CVE-2026-102764 vendor/product is disputed between sources (BeyondTrust vs Fortinet) and the CISA alert was not retrieved; no new UK government incident confirmed in the window."
+      "2026-10-17 run: search-result summaries only; BeyondTrust CVE-2026-102764 vendor/product is disputed between sources (BeyondTrust vs Fortinet) and the CISA alert was not retrieved; no new UK government incident confirmed in the window.",
+      "2026-10-18 run: search-result summaries only; nothing new dated within the window was found, so entries are carry-overs and their details remain secondary-source and unverified."
     ],
     "confidence_legend": {
       "high": "Corroborated by the vendor advisory or by multiple independent reputable sources.",
@@ -53,7 +54,7 @@
   },
   "vulnerabilities": [
     {
-      "id": "TI-2026-10-17-001",
+      "id": "TI-2026-10-18-001",
       "title": "Legal Aid Agency (MoJ) Breach Scope Widened - Records Back to 1978 and HMPPS Probation Data Found in Stolen Set",
       "cve_ids": [],
       "vendor": "UK Ministry of Justice / Legal Aid Agency",
@@ -109,7 +110,7 @@
     },
     {
       "rank": 2,
-      "id": "TI-2026-10-17-002",
+      "id": "TI-2026-10-18-002",
       "title": "Carry-over: 'FortiBleed' - Stolen Fortinet Firewall Credentials Include UK Government, Embassy, Council and NHS Accounts Offered for Sale",
       "cve_ids": [],
       "vendor": "Fortinet (appliances); actor unattributed",
@@ -164,7 +165,7 @@
       ]
     },
     {
-      "id": "TI-2026-10-17-003",
+      "id": "TI-2026-10-18-003",
       "title": "Council Schools IT Network Hit by Second Cyber Attack - Records Exported (Bristol)",
       "cve_ids": [],
       "vendor": "Local authority schools network",
@@ -218,7 +219,7 @@
     },
     {
       "rank": 4,
-      "id": "TI-2026-10-17-004",
+      "id": "TI-2026-10-18-004",
       "title": "Citrix NetScaler ADC/Gateway Zero-Days Under Active Exploitation - NCSC and NHS England Alerts; UK Follow-on SAML Flaw Pending (CVE-2026-88771, CVE-2026-88772, CVE-2026-107406)",
       "cve_ids": [
         "CVE-2026-88771",
@@ -330,7 +331,7 @@
     },
     {
       "rank": 5,
-      "id": "TI-2026-10-17-011",
+      "id": "TI-2026-10-18-011",
       "title": "BeyondTrust Remote Support Authentication Bypass Exploited as Zero-Day by Suspected China-Nexus Actor - Added to CISA KEV 16 Oct (CVE-2026-102764)",
       "cve_ids": [
         "CVE-2026-102764"
@@ -387,7 +388,7 @@
     },
     {
       "rank": 6,
-      "id": "TI-2026-10-17-005",
+      "id": "TI-2026-10-18-005",
       "title": "Ivanti Connect Secure Chained Zero-Days (Auth Bypass + RCE + Root Privilege Escalation) Exploited by UTA0576 - Added to CISA KEV (CVE-2026-104935)",
       "cve_ids": [
         "CVE-2026-104935"
@@ -460,7 +461,7 @@
     },
     {
       "rank": 7,
-      "id": "TI-2026-10-17-006",
+      "id": "TI-2026-10-18-006",
       "title": "CISA KEV Additions 2026-10-14: PAN-OS, Cisco Secure Email Gateway and Ahsay AhsayCBS Chain Exploited (CVE-2026-0322, CVE-2026-76519, CVE-2026-105133, CVE-2026-105134)",
       "cve_ids": [
         "CVE-2026-0322",
@@ -528,7 +529,7 @@
     },
     {
       "rank": 8,
-      "id": "TI-2026-10-17-007",
+      "id": "TI-2026-10-18-007",
       "title": "TFG London (Hobbs, Whistles, Phase Eight) Cyber Incident Disrupts UK Retail IT Systems; Second UK Retailer Incident in a Week",
       "cve_ids": [],
       "vendor": "The Foschini Group (TFG London)",
@@ -586,7 +587,7 @@
     },
     {
       "rank": 9,
-      "id": "TI-2026-10-17-008",
+      "id": "TI-2026-10-18-008",
       "title": "ASOS Breach and H&M 'ShinyHunters' Claims - UK Retail Third-Party Platform Compromise Wave (ASOS, TFG London, H&M)",
       "cve_ids": [],
       "vendor": "ASOS",
@@ -660,7 +661,7 @@
       ]
     },
     {
-      "id": "TI-2026-10-17-009",
+      "id": "TI-2026-10-18-009",
       "title": "Bromcom (UK School MIS Supplier) Breach of Legacy SSO Registration Service - Email Addresses Exposed",
       "cve_ids": [],
       "vendor": "Bromcom",
@@ -718,7 +719,7 @@
     "filepath": [
       {
         "value": "/vpn/scripts/linux/nsgclient18.deb",
-        "related_entry": "TI-2026-10-17-004",
+        "related_entry": "TI-2026-10-18-004",
         "related_cves": [
           "CVE-2026-88771",
           "CVE-2026-88772",
@@ -728,7 +729,7 @@
       },
       {
         "value": "/vpn/scripts/linux/nsg64.deb",
-        "related_entry": "TI-2026-10-17-004",
+        "related_entry": "TI-2026-10-18-004",
         "related_cves": [
           "CVE-2026-88771",
           "CVE-2026-88772",
@@ -738,7 +739,7 @@
       },
       {
         "value": "/var/netscaler/logon/LogonPoint/custom/.ctxs.receiver",
-        "related_entry": "TI-2026-10-17-004",
+        "related_entry": "TI-2026-10-18-004",
         "related_cves": [
           "CVE-2026-88771",
           "CVE-2026-88772",
@@ -750,7 +751,7 @@
     "malware": [
       {
         "value": "Platypus",
-        "related_entry": "TI-2026-10-17-004",
+        "related_entry": "TI-2026-10-18-004",
         "related_cves": [
           "CVE-2026-88771",
           "CVE-2026-88772",
@@ -760,7 +761,7 @@
       },
       {
         "value": "WHIPSHOT (PHP webshell); SLAPSHOT (Python tunneller)",
-        "related_entry": "TI-2026-10-17-004",
+        "related_entry": "TI-2026-10-18-004",
         "related_cves": [
           "CVE-2026-88771",
           "CVE-2026-88772",
@@ -770,7 +771,7 @@
       },
       {
         "value": "None published",
-        "related_entry": "TI-2026-10-17-006",
+        "related_entry": "TI-2026-10-18-006",
         "related_cves": [
           "CVE-2026-0322",
           "CVE-2026-76519",
@@ -783,7 +784,7 @@
     "actor": [
       {
         "value": "UTA0576",
-        "related_entry": "TI-2026-10-17-005",
+        "related_entry": "TI-2026-10-18-005",
         "related_cves": [
           "CVE-2026-104935"
         ],
@@ -791,31 +792,31 @@
       },
       {
         "value": "ShinyHunters (unconfirmed attribution)",
-        "related_entry": "TI-2026-10-17-007",
+        "related_entry": "TI-2026-10-18-007",
         "related_cves": [],
         "confidence": "low"
       },
       {
         "value": "Xuanyewen (self-described)",
-        "related_entry": "TI-2026-10-17-008",
+        "related_entry": "TI-2026-10-18-008",
         "related_cves": [],
         "confidence": "low"
       },
       {
         "value": "ShinyHunters (claimed, unconfirmed)",
-        "related_entry": "TI-2026-10-17-008",
+        "related_entry": "TI-2026-10-18-008",
         "related_cves": [],
         "confidence": "low"
       },
       {
         "value": "Russian-speaking threat actors (unattributed)",
-        "related_entry": "TI-2026-10-17-002",
+        "related_entry": "TI-2026-10-18-002",
         "related_cves": [],
         "confidence": "low"
       },
       {
         "value": "Suspected China-nexus espionage group (per Mandiant, as relayed)",
-        "related_entry": "TI-2026-10-17-011",
+        "related_entry": "TI-2026-10-18-011",
         "related_cves": [
           "CVE-2026-102764"
         ],
@@ -825,7 +826,7 @@
     "ttp": [
       {
         "value": "Chained auth bypass + RCE + local privilege escalation on VPN appliance",
-        "related_entry": "TI-2026-10-17-005",
+        "related_entry": "TI-2026-10-18-005",
         "related_cves": [
           "CVE-2026-104935"
         ],
@@ -833,7 +834,7 @@
       },
       {
         "value": "Credential stuffing / account takeover using reused credentials",
-        "related_entry": "TI-2026-10-17-008",
+        "related_entry": "TI-2026-10-18-008",
         "related_cves": [],
         "confidence": "low"
       }
