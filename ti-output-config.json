@@ -3,18 +3,18 @@
   "feed_id": "ti-daily-top10",
   "feed_name": "Daily Threat Intelligence Output - Top 10 Vulnerabilities and Cyber Incidents",
   "report": {
-    "check_performed_at": "2026-10-23T12:00:00Z",
-    "check_performed_at_local": "2026-10-23",
+    "check_performed_at": "2026-10-24T12:00:00Z",
+    "check_performed_at_local": "2026-10-24",
     "timezone": "UTC",
     "coverage_window": {
-      "start": "2026-10-22T12:00:00Z",
-      "end": "2026-10-23T12:00:00Z",
+      "start": "2026-10-23T12:00:00Z",
+      "end": "2026-10-24T12:00:00Z",
       "duration_hours": 24.0,
-      "note": "UK-focused run. No new UK-specific incident found in the window. Material update: PHP2Shell (rank 1) now has multiple vendor reports of in-the-wild exploitation (watchTowr honeypot, Patchstack, Aikido, Cloudflare; Dutch NCSC says weaponised), upgraded from unconfirmed. CISA had not listed it in KEV in sources seen; CISA urged immediate patching. Remaining entries are carry-overs."
+      "note": "UK-focused run. No new UK-specific incident confirmed in the window. New: CISA added Collabora Online built-in CODE Server command injection (CVE-2026-110447, bundled with Nextcloud) to KEV on 23 Oct. PHP2Shell (rank 1) updated with fixed versions (8.5.12/8.4.27/8.3.36/8.2.35) and broad vendor-reported exploitation; no KEV listing or UK-specific NCSC page confirmed in sources seen. Remaining entries are carry-overs; ASOS/H&M entry dropped from top 10 as the oldest, lowest-priority carry-over."
     },
     "entry_count": 10,
     "generated_by": "scheduled-claude-research",
-    "next_check_due": "2026-10-24T12:00:00Z"
+    "next_check_due": "2026-10-25T12:00:00Z"
   },
   "collection_metadata": {
     "collection_method": "open-source web search aggregation (search snippets only)",
@@ -33,7 +33,8 @@
       "2026-10-20 run: search-result summaries only (page fetches failed); nothing new dated within the window was found, so entries are carry-overs and remain secondary-source and unverified.",
       "2026-10-21 run: search-result summaries only; nothing new dated within the window was found, so entries are carry-overs and remain secondary-source and unverified.",
       "2026-10-22 run: search-result summaries only (cisa.gov fetch failed); PHP2Shell details are from press reports and unverified against NCSC/PHP primary advisories.",
-      "2026-10-23 run: search-result summaries only; PHP2Shell exploitation claims are from vendor blogs/press (watchTowr, Patchstack, Aikido, Cloudflare) and KEV status could not be confirmed; no new UK incident dated within the window was found, so other entries are carry-overs."
+      "2026-10-23 run: search-result summaries only; PHP2Shell exploitation claims are from vendor blogs/press (watchTowr, Patchstack, Aikido, Cloudflare) and KEV status could not be confirmed; no new UK incident dated within the window was found, so other entries are carry-overs.",
+      "2026-10-24 run: search-result summaries only (cisa.gov fetch failed); Collabora/Nextcloud KEV details come from search snippets and third-party reports; no new UK incident dated within the window was found, so other entries are carry-overs."
     ],
     "confidence_legend": {
       "high": "Corroborated by the vendor advisory or by multiple independent reputable sources.",
@@ -78,10 +79,11 @@
       "kev_due_date": null,
       "patch_available": "yes",
       "first_reported": "2026-10-21",
-      "last_updated": "2026-10-23",
+      "last_updated": "2026-10-24",
       "confidence": "medium",
-      "summary": "UK government and public sector. Press reports (STV News, Insurance Business, Lancashire Evening Post) say the NCSC, with EU and Australian counterparts, urged immediate patching of two critical PHP flaws nicknamed 'PHP2Shell' (CVE-2026-109618/109619, both reported at CVSS 9.2) that can allow unauthenticated remote takeover of a web server. NCSC advice: patch at once; if not possible apply PHP's temporary mitigations; if that is also not quick, consider taking affected systems offline. In response, at least seven of Scotland's 32 councils and six NHS health boards pulled public websites, and Edinburgh and Oxford councils, South Ribble Borough Council, the Met Police and Golden Jubilee Hospital were reported affected. Most sites were restored within hours to the next morning after patching. No confirmed in-the-wild exploitation was found in the sources; the takedowns were precautionary. NHS England Digital also lists PHP advisories dated 20-21 Oct. Details are from secondary reporting; NCSC primary text and PHP advisory were not retrieved. UPDATE 23 Oct: multiple security vendors now report in-the-wild exploitation - watchTowr (honeypot sightings), Patchstack (multiple confirmed incidents), Aikido and Cloudflare (early attack attempts); the Dutch NCSC says it is receiving partner signals of active weaponisation, while CISA had not observed exploitation as of its 21 Oct alert and the CVEs were not seen in KEV. Datadog states the widely circulated config workaround does not protect; only patching fixes it. No UK-specific compromise confirmed.",
+      "summary": "UK government and public sector. Press reports (STV News, Insurance Business, Lancashire Evening Post) say the NCSC, with EU and Australian counterparts, urged immediate patching of two critical PHP flaws nicknamed 'PHP2Shell' (CVE-2026-109618/109619, both reported at CVSS 9.2) that can allow unauthenticated remote takeover of a web server. NCSC advice: patch at once; if not possible apply PHP's temporary mitigations; if that is also not quick, consider taking affected systems offline. In response, at least seven of Scotland's 32 councils and six NHS health boards pulled public websites, and Edinburgh and Oxford councils, South Ribble Borough Council, the Met Police and Golden Jubilee Hospital were reported affected. Most sites were restored within hours to the next morning after patching. No confirmed in-the-wild exploitation was found in the sources; the takedowns were precautionary. NHS England Digital also lists PHP advisories dated 20-21 Oct. Details are from secondary reporting; NCSC primary text and PHP advisory were not retrieved. UPDATE 23 Oct: multiple security vendors now report in-the-wild exploitation - watchTowr (honeypot sightings), Patchstack (multiple confirmed incidents), Aikido and Cloudflare (early attack attempts); the Dutch NCSC says it is receiving partner signals of active weaponisation, while CISA had not observed exploitation as of its 21 Oct alert and the CVEs were not seen in KEV. Datadog states the widely circulated config workaround does not protect; only patching fixes it. No UK-specific compromise confirmed. UPDATE 24 Oct: fixed releases reported as PHP 8.5.12, 8.4.27, 8.3.36 and 8.2.35 (PHP 8.1 and older unsupported; use vendor backports). Wiz, Tanium, Bitsight and Canada's Cyber Centre (AL26-026) have published guidance; KEV listing still not confirmed.",
       "recommended_actions": [
+        "Upgrade to PHP 8.5.12 / 8.4.27 / 8.3.36 / 8.2.35 or a vendor-backported fix; replace unsupported 8.1 and older.",
         "Inventory all PHP-based web servers (CMS, intranets, legacy portals, third-party hosted council/NHS sites) and patch to the fixed PHP releases from php.net immediately.",
         "Do not rely on the circulated config-only workaround (reported ineffective); prioritise patching.",
         "Where patching is delayed, apply PHP's published temporary mitigations and restrict exposure via WAF/reverse proxy; isolate if neither is possible.",
@@ -407,6 +409,62 @@
     },
     {
       "rank": 6,
+      "id": "TI-2026-10-24-001",
+      "title": "Collabora Online Built-in CODE Server OS Command Injection (CVE-2026-110447) Added to CISA KEV - Nextcloud Deployments at Risk",
+      "cve_ids": [
+        "CVE-2026-110447"
+      ],
+      "vendor": "Collabora / Nextcloud",
+      "affected_products": [
+        "Nextcloud richdocumentscode (built-in CODE server) before 26.4.303"
+      ],
+      "category": "vulnerability",
+      "cvss_v3": null,
+      "severity": "high",
+      "exploitation_status": "exploited_in_the_wild",
+      "kev_listed": true,
+      "kev_due_date": "2026-10-26",
+      "patch_available": "yes",
+      "first_reported": "2026-10-23",
+      "last_updated": "2026-10-24",
+      "confidence": "medium",
+      "summary": "CISA added CVE-2026-110447, an unauthenticated OS command injection in the Collabora Online built-in CODE server bundled with Nextcloud, to KEV on 23 Oct with a federal due date of 26 Oct. Exploitation allows arbitrary command execution, so web shells should be sought on unpatched hosts. Nextcloud is widely used for document collaboration by UK councils, universities and NHS suppliers, but no UK-specific compromise was reported. Details from search snippets and third-party reports; CISA page not retrieved.",
+      "recommended_actions": [
+        "Update richdocumentscode to 26.4.303 or later, or remove the built-in CODE server.",
+        "Inventory Nextcloud instances (including supplier-hosted) and restrict Collabora endpoints from the internet where possible.",
+        "Hunt for web shells and unexpected child processes from the web server or CODE server."
+      ],
+      "kql": [
+        {
+          "platform": "defender_xdr",
+          "table": "DeviceProcessEvents",
+          "name": "Collabora CODE server spawning shells",
+          "description": "Possible CVE-2026-110447 exploitation. Untested; tune.",
+          "query": "DeviceProcessEvents\n| where Timestamp > ago(7d)\n| where InitiatingProcessCommandLine has_any (\"coolwsd\",\"richdocumentscode\",\"collabora\")\n| where FileName in~ (\"sh\",\"bash\",\"dash\",\"curl\",\"wget\",\"nc\",\"python3\")\n| project Timestamp, DeviceName, FileName, ProcessCommandLine, InitiatingProcessCommandLine, AccountName"
+        }
+      ],
+      "iocs": [
+        {
+          "type": "filepath",
+          "value": "richdocumentscode (Nextcloud app, version < 26.4.303)",
+          "context": "Vulnerable component",
+          "confidence": "medium",
+          "source": "search-result summary"
+        },
+        {
+          "type": "note",
+          "value": "No network IOCs published in sources seen",
+          "context": "Provenance statement",
+          "confidence": "low"
+        }
+      ],
+      "references": [
+        "https://www.cisa.gov/news-events/alerts/2026/10/23/cisa-adds-one-known-exploited-vulnerability-catalog-0",
+        "https://windowsforum.com/news/cisa-kev-flags-cve-2026-110447-patch-nextcloud-built-in-collabora-code-command-injection.449798/"
+      ]
+    },
+    {
+      "rank": 7,
       "id": "TI-2026-10-21-011",
       "title": "BeyondTrust Remote Support Authentication Bypass Exploited as Zero-Day by Suspected China-Nexus Actor - Added to CISA KEV 16 Oct (CVE-2026-102764)",
       "cve_ids": [
@@ -463,7 +521,7 @@
       ]
     },
     {
-      "rank": 7,
+      "rank": 8,
       "id": "TI-2026-10-21-005",
       "title": "Ivanti Connect Secure Chained Zero-Days (Auth Bypass + RCE + Root Privilege Escalation) Exploited by UTA0576 - Added to CISA KEV (CVE-2026-104935)",
       "cve_ids": [
@@ -536,7 +594,7 @@
       ]
     },
     {
-      "rank": 8,
+      "rank": 9,
       "id": "TI-2026-10-21-006",
       "title": "CISA KEV Additions 2026-10-14: PAN-OS, Cisco Secure Email Gateway and Ahsay AhsayCBS Chain Exploited (CVE-2026-0322, CVE-2026-76519, CVE-2026-105133, CVE-2026-105134)",
       "cve_ids": [
@@ -604,7 +662,7 @@
       ]
     },
     {
-      "rank": 9,
+      "rank": 10,
       "id": "TI-2026-10-21-007",
       "title": "TFG London (Hobbs, Whistles, Phase Eight) Cyber Incident Disrupts UK Retail IT Systems; Second UK Retailer Incident in a Week",
       "cve_ids": [],
@@ -660,81 +718,6 @@
         "https://www.itpro.com/security/cyber-attacks/another-major-fashion-retailer-hit-by-cyber-attack",
         "https://londoncrimenews.co.uk/fraud-cybercrime/hobbs-whistles-owner-tfg-london-hit-by-cyber-attack"
       ]
-    },
-    {
-      "rank": 10,
-      "id": "TI-2026-10-21-008",
-      "title": "ASOS Breach and H&M 'ShinyHunters' Claims - UK Retail Third-Party Platform Compromise Wave (ASOS, TFG London, H&M)",
-      "cve_ids": [],
-      "vendor": "ASOS",
-      "affected_products": [
-        "ASOS customer accounts / e-commerce platform",
-        "H&M (claims under investigation; no breach confirmed)"
-      ],
-      "category": "incident",
-      "cvss_v3": null,
-      "severity": "high",
-      "exploitation_status": "no_known_exploitation",
-      "kev_listed": false,
-      "kev_due_date": null,
-      "patch_available": "no",
-      "first_reported": "2026-10-06",
-      "last_updated": "2026-10-15",
-      "confidence": "medium",
-      "summary": "UPDATE 2026-10-15: Press on 2026-10-12/13 links ASOS, TFG London and H&M in one week. H&M told media it is investigating claims attributed to ShinyHunters circulating online, has no indication its data environment is compromised, and had not notified the ICO as of Monday 12 Oct (shares fell ~1.4%). Reports tie the ASOS breach (6 Oct) to stolen employee credentials and access to customer data through third-party platforms. Attribution remains unconfirmed. Prior detail: UPDATE 2026-10-14: TechCrunch (2026-10-08) and BleepingComputer report ASOS confirmed a breach after hackers sent a rogue in-app notification. ASOS says attackers broke into a third-party platform used to message customers; names and contact details (reports also cite addresses, phone numbers, emails, search data and customer numbers) may have been accessed, with no payment-card or password exposure reported. Attackers reportedly impersonated a trusted contact to obtain an employee's credentials. The BBC attributes it to a group calling itself Xuanyewen, which claims a Snowflake-based platform (Simon AI); Snowflake says it was not breached. Record counts vary widely between outlets (one claims millions) and are unverified. ASOS is working with law enforcement and regulators; UK and Australian customers are affected. Separate: US notifications (2026-08-21) describe an earlier ASOS account-takeover (~138,828 individuals, credential stuffing); not established to be the same event. Not new in the last 24h but carried with substantially updated detail; relevant to the ongoing sequence of attacks on UK retailers (see TFG London).",
-      "recommended_actions": [
-        "Review third-party SaaS/messaging platform access, enforce phishing-resistant MFA and conditional access on vendor-facing accounts.",
-        "Brief help-desk and staff on trusted-contact impersonation; monitor for phishing using leaked customer data.",
-        "Customers: be alert to phishing/SMS referencing ASOS orders; ICO notification expectations apply for UK data subjects."
-      ],
-      "kql": [
-        {
-          "platform": "sentinel",
-          "table": "W3CIISLog",
-          "name": "Credential stuffing - many distinct usernames from one IP on login endpoint",
-          "description": "Generic detection for customer-facing login abuse; adjust the URI to your login path.",
-          "query": "W3CIISLog\n| where TimeGenerated > ago(7d)\n| where csMethod == \"POST\" and csUriStem has_any (\"/login\",\"/signin\",\"/account/authenticate\")\n| summarize Attempts=count(), Failures=countif(scStatus in (401,403)), Users=dcount(csUserName) by cIP, bin(TimeGenerated,15m)\n| where Attempts > 50 and Users > 20\n| sort by Attempts desc"
-        }
-      ],
-      "iocs": [
-        {
-          "type": "ttp",
-          "value": "Credential stuffing / account takeover using reused credentials",
-          "context": "Reported vector for the August 2026 ASOS notification; ATT&CK T1110.004.",
-          "confidence": "low",
-          "source": "eSecurityPlanet (as relayed)"
-        },
-        {
-          "type": "note",
-          "value": "No technical indicators published.",
-          "context": "Provenance statement - filter before ingestion.",
-          "confidence": "high",
-          "source": "analyst note"
-        },
-        {
-          "type": "actor",
-          "value": "Xuanyewen (self-described)",
-          "context": "Group named by BBC as claiming the ASOS intrusion; unverified.",
-          "confidence": "low",
-          "source": "BBC (as relayed)"
-        },
-        {
-          "type": "actor",
-          "value": "ShinyHunters (claimed, unconfirmed)",
-          "context": "Named in reporting on H&M claims; ASOS/TFG links unverified.",
-          "confidence": "low",
-          "source": "Press reports (as relayed)"
-        }
-      ],
-      "references": [
-        "https://www.esecurityplanet.com/threats/news-asos-account-takeover-138828-customers/",
-        "https://www.itpro.com/security/cyber-attacks/another-major-fashion-retailer-hit-by-cyber-attack",
-        "https://techcrunch.com/2026/10/08/asos-confirms-breach-of-customer-data-after-hackers-send-rogue-app-notification/",
-        "https://bleepingcomputer.com/news/security/asos-confirms-data-breach-after-hacked-in-app-notifications",
-        "https://cyberinsider.com/asos-credential-stuffing-attack-exposed-data-of-138828-customers/",
-        "https://www.insurancebusinessmag.com/uk/news/cyber/handm-investigates-hacking-claims-as-retail-cyber-risks-spread-593134.aspx",
-        "https://www.expressandstar.com/uk-news/hm-investigating-cyber-attack-claims-reports-say-9283112"
-      ]
     }
   ],
   "ioc_index": {
@@ -766,6 +749,14 @@
           "CVE-2026-88771",
           "CVE-2026-88772",
           "CVE-2026-107406"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "value": "richdocumentscode (Nextcloud app, version < 26.4.303)",
+        "related_entry": "TI-2026-10-24-001",
+        "related_cves": [
+          "CVE-2026-110447"
         ],
         "confidence": "medium"
       }
@@ -819,18 +810,6 @@
         "confidence": "low"
       },
       {
-        "value": "Xuanyewen (self-described)",
-        "related_entry": "TI-2026-10-21-008",
-        "related_cves": [],
-        "confidence": "low"
-      },
-      {
-        "value": "ShinyHunters (claimed, unconfirmed)",
-        "related_entry": "TI-2026-10-21-008",
-        "related_cves": [],
-        "confidence": "low"
-      },
-      {
         "value": "Russian-speaking threat actors (unattributed)",
         "related_entry": "TI-2026-10-21-002",
         "related_cves": [],
@@ -853,29 +832,24 @@
           "CVE-2026-104935"
         ],
         "confidence": "medium"
-      },
-      {
-        "value": "Credential stuffing / account takeover using reused credentials",
-        "related_entry": "TI-2026-10-21-008",
-        "related_cves": [],
-        "confidence": "low"
       }
     ]
   },
   "summary_statistics": {
     "total_entries": 10,
-    "actively_exploited": 7,
-    "kev_listed": 4,
-    "no_patch_available": 3,
+    "actively_exploited": 8,
+    "kev_listed": 5,
+    "no_patch_available": 2,
     "partial_patch_available": 4,
-    "total_cves_referenced": 11,
+    "total_cves_referenced": 12,
     "total_kql_queries": 15,
-    "total_iocs": 27,
+    "total_iocs": 25,
     "kev_deadlines_passed_or_due": [
       "2026-09-30",
       "2026-10-16",
-      "2026-10-19"
+      "2026-10-19",
+      "2026-10-26"
     ],
-    "highest_priority_action": "Patch PHP (PHP2Shell, CVE-2026-109618/109619) immediately - exploitation now reported in the wild; config workaround reported ineffective. Then Citrix NetScaler, Ivanti Connect Secure and BeyondTrust Remote Support; prepare for phishing following the Legal Aid Agency/HMPPS exposure."
+    "highest_priority_action": "Patch PHP (PHP2Shell, CVE-2026-109618/109619) to 8.5.12/8.4.27/8.3.36/8.2.35 immediately - exploitation reported in the wild. Then Citrix NetScaler, Ivanti Connect Secure, BeyondTrust and Nextcloud/Collabora CODE (CVE-2026-110447, KEV due 26 Oct); prepare for phishing following the Legal Aid Agency/HMPPS exposure."
   }
 }
