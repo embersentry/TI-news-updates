@@ -3,18 +3,18 @@
   "feed_id": "ti-daily-top10",
   "feed_name": "Daily Threat Intelligence Output - Top 10 Vulnerabilities and Cyber Incidents",
   "report": {
-    "check_performed_at": "2026-10-27T12:00:00Z",
-    "check_performed_at_local": "2026-10-27",
+    "check_performed_at": "2026-10-28T10:45:00Z",
+    "check_performed_at_local": "2026-10-28",
     "timezone": "UTC",
     "coverage_window": {
-      "start": "2026-10-26T12:00:00Z",
-      "end": "2026-10-27T12:00:00Z",
+      "start": "2026-10-27T10:45:00Z",
+      "end": "2026-10-28T10:45:00Z",
       "duration_hours": 24.0,
-      "note": "UK-focused run. No new UK government or UK corporate incident first reported in the window was found. Key change: CISA added both PHP2Shell CVEs (CVE-2026-109618/109619) to the KEV catalog on 26 Oct, confirming exploitation (Amazon reports attempts from 17 Oct); UK impact remains precautionary takedowns, no confirmed UK compromise. Remaining entries are carry-overs."
+      "note": "UK-focused run. No new confirmed UK government compromise found in the window. New: HMICFRS finding (via The Record, 27 Oct) that police suppliers have been repeatedly compromised. PHP2Shell remains KEV-listed (26 Oct); CISA added further KEV entries 27 Oct (Adobe Commerce/Magento, Google Brotli) - unverified UK impact. Remaining entries are carry-overs; PAN-OS/Cisco/Ahsay entry dropped to make room."
     },
     "entry_count": 10,
     "generated_by": "scheduled-claude-research",
-    "next_check_due": "2026-10-28T12:00:00Z"
+    "next_check_due": "2026-10-29T10:45:00Z"
   },
   "collection_metadata": {
     "collection_method": "open-source web search aggregation (search snippets only)",
@@ -37,7 +37,8 @@
       "2026-10-24 run: search-result summaries only (cisa.gov fetch failed); Collabora/Nextcloud KEV details come from search snippets and third-party reports; no new UK incident dated within the window was found, so other entries are carry-overs.",
       "2026-10-25 run: search-result summaries only; nothing new dated within the window for UK government was found. PHP2Shell exploitation reports conflict between vendors (Amazon/watchTowr/Cloudflare/SecurityWeek report attacks; The Hacker News/Tanium note mostly probing and unproven public exploit code). Verify KEV status directly.",
       "2026-10-26 run: search-result summaries only; nothing new dated within the window for UK government or UK corporates was found, so entries are carry-overs. Arista VeloCloud Orchestrator CVE/KEV date conflicts between sources and was excluded. Verify KEV status for PHP2Shell directly.",
-      "2026-10-27 run: search-result summaries only (cisa.gov fetch failed); PHP2Shell KEV addition on 26 Oct is from search snippets and the KEV due date was not retrieved; no new UK government or UK corporate incident confirmed in the window."
+      "2026-10-27 run: search-result summaries only (cisa.gov fetch failed); PHP2Shell KEV addition on 26 Oct is from search snippets and the KEV due date was not retrieved; no new UK government or UK corporate incident confirmed in the window.",
+      "2026-10-28 run: search-result summaries only; HMICFRS/Record details are secondary and unverified; Adobe CVE-2026-48356 KEV status could not be corroborated."
     ],
     "confidence_legend": {
       "high": "Corroborated by the vendor advisory or by multiple independent reputable sources.",
@@ -82,9 +83,9 @@
       "kev_due_date": null,
       "patch_available": "yes",
       "first_reported": "2026-10-21",
-      "last_updated": "2026-10-27",
+      "last_updated": "2026-10-28",
       "confidence": "medium",
-      "summary": "UK government and public sector. Press reports (STV News, Insurance Business, Lancashire Evening Post) say the NCSC, with EU and Australian counterparts, urged immediate patching of two critical PHP flaws nicknamed 'PHP2Shell' (CVE-2026-109618/109619, both reported at CVSS 9.2) that can allow unauthenticated remote takeover of a web server. NCSC advice: patch at once; if not possible apply PHP's temporary mitigations; if that is also not quick, consider taking affected systems offline. In response, at least seven of Scotland's 32 councils and six NHS health boards pulled public websites, and Edinburgh and Oxford councils, South Ribble Borough Council, the Met Police and Golden Jubilee Hospital were reported affected. Most sites were restored within hours to the next morning after patching. No confirmed in-the-wild exploitation was found in the sources; the takedowns were precautionary. NHS England Digital also lists PHP advisories dated 20-21 Oct. Details are from secondary reporting; NCSC primary text and PHP advisory were not retrieved. UPDATE 23 Oct: multiple security vendors now report in-the-wild exploitation - watchTowr (honeypot sightings), Patchstack (multiple confirmed incidents), Aikido and Cloudflare (early attack attempts); the Dutch NCSC says it is receiving partner signals of active weaponisation, while CISA had not observed exploitation as of its 21 Oct alert and the CVEs were not seen in KEV. Datadog states the widely circulated config workaround does not protect; only patching fixes it. No UK-specific compromise confirmed. UPDATE 24 Oct: fixed releases reported as PHP 8.5.12, 8.4.27, 8.3.36 and 8.2.35 (PHP 8.1 and older unsupported; use vendor backports). Wiz, Tanium, Bitsight and Canada's Cyber Centre (AL26-026) have published guidance; KEV listing still not confirmed. UPDATE 25 Oct: SecurityWeek reports Mirai botnet operators joining PHP2Shell attacks and ASLR-bypass exploits emerging; Amazon threat intelligence reports first attempts from 17 Oct, ahead of the fix; joint NSA/CISA guidance urges immediate patching or taking unpatchable systems offline. Vendor accounts conflict on exploit reliability. KEV listing not confirmed. UPDATE 26 Oct: no new UK-specific compromise reported; NCSC guidance unchanged (patch to fixed releases or take unpatchable systems offline). KEV listing not confirmed. UPDATE 27 Oct: CISA added CVE-2026-109618 and CVE-2026-109619 to the KEV catalog on 26 Oct (alert 'CISA Adds Two Known Exploited Vulnerabilities to Catalog'), formally confirming in-the-wild exploitation (earlier 23 Oct CISA text said none observed). KEV due date not retrieved. VulnCheck reports an ASLR-aware x86-64 exploit against CVE-2026-109618 (customers only). No new UK-specific compromise confirmed; NCSC guidance unchanged.",
+      "summary": "UK government and public sector. Press reports (STV News, Insurance Business, Lancashire Evening Post) say the NCSC, with EU and Australian counterparts, urged immediate patching of two critical PHP flaws nicknamed 'PHP2Shell' (CVE-2026-109618/109619, both reported at CVSS 9.2) that can allow unauthenticated remote takeover of a web server. NCSC advice: patch at once; if not possible apply PHP's temporary mitigations; if that is also not quick, consider taking affected systems offline. In response, at least seven of Scotland's 32 councils and six NHS health boards pulled public websites, and Edinburgh and Oxford councils, South Ribble Borough Council, the Met Police and Golden Jubilee Hospital were reported affected. Most sites were restored within hours to the next morning after patching. No confirmed in-the-wild exploitation was found in the sources; the takedowns were precautionary. NHS England Digital also lists PHP advisories dated 20-21 Oct. Details are from secondary reporting; NCSC primary text and PHP advisory were not retrieved. UPDATE 23 Oct: multiple security vendors now report in-the-wild exploitation - watchTowr (honeypot sightings), Patchstack (multiple confirmed incidents), Aikido and Cloudflare (early attack attempts); the Dutch NCSC says it is receiving partner signals of active weaponisation, while CISA had not observed exploitation as of its 21 Oct alert and the CVEs were not seen in KEV. Datadog states the widely circulated config workaround does not protect; only patching fixes it. No UK-specific compromise confirmed. UPDATE 24 Oct: fixed releases reported as PHP 8.5.12, 8.4.27, 8.3.36 and 8.2.35 (PHP 8.1 and older unsupported; use vendor backports). Wiz, Tanium, Bitsight and Canada's Cyber Centre (AL26-026) have published guidance; KEV listing still not confirmed. UPDATE 25 Oct: SecurityWeek reports Mirai botnet operators joining PHP2Shell attacks and ASLR-bypass exploits emerging; Amazon threat intelligence reports first attempts from 17 Oct, ahead of the fix; joint NSA/CISA guidance urges immediate patching or taking unpatchable systems offline. Vendor accounts conflict on exploit reliability. KEV listing not confirmed. UPDATE 26 Oct: no new UK-specific compromise reported; NCSC guidance unchanged (patch to fixed releases or take unpatchable systems offline). KEV listing not confirmed. UPDATE 27 Oct: CISA added CVE-2026-109618 and CVE-2026-109619 to the KEV catalog on 26 Oct (alert 'CISA Adds Two Known Exploited Vulnerabilities to Catalog'), formally confirming in-the-wild exploitation (earlier 23 Oct CISA text said none observed). KEV due date not retrieved. VulnCheck reports an ASLR-aware x86-64 exploit against CVE-2026-109618 (customers only). No new UK-specific compromise confirmed; NCSC guidance unchanged. UPDATE 28 Oct: no new UK-specific compromise reported; NCSC CTO weekly summary (w/e 25 Oct) still urges immediate PHP mitigation.",
       "recommended_actions": [
         "Upgrade to PHP 8.5.12 / 8.4.27 / 8.3.36 / 8.2.35 or a vendor-backported fix; replace unsupported 8.1 and older.",
         "Inventory all PHP-based web servers (CMS, intranets, legacy portals, third-party hosted council/NHS sites) and patch to the fixed PHP releases from php.net immediately.",
@@ -195,6 +196,60 @@
     },
     {
       "rank": 3,
+      "id": "TI-2026-10-28-001",
+      "title": "HMICFRS Warns Hackers Have Repeatedly Compromised Suppliers Holding UK Police Data - Most Contracts Lack Ongoing Cyber Assurance",
+      "cve_ids": [],
+      "vendor": "Various police suppliers",
+      "affected_products": [
+        "Third-party suppliers to UK police forces"
+      ],
+      "category": "incident",
+      "cvss_v3": null,
+      "severity": "high",
+      "exploitation_status": "no_known_exploitation",
+      "kev_listed": false,
+      "kev_due_date": null,
+      "patch_available": "no",
+      "first_reported": "2026-10-27",
+      "last_updated": "2026-10-28",
+      "confidence": "low",
+      "summary": "UK police and public sector. A gblock article dated 28 Oct, citing The Record (27 Oct), reports that HMICFRS found hackers have repeatedly compromised third-party suppliers holding British police data since 2021, and that most supplier contracts carried no ongoing cybersecurity assurance. Context: earlier supplier breaches exposed officer data (e.g. ID-card supplier incidents affecting Met and Greater Manchester Police). Primary HMICFRS/Record text was not retrieved; details are secondary and unverified. Supply-chain exposure for forces and other public bodies using similar suppliers.",
+      "recommended_actions": [
+        "Inventory suppliers holding police/public-sector personnel data and require ongoing security assurance in contracts",
+        "Review supplier access and data-sharing; monitor for phishing targeting officers/staff",
+        "Check NCSC supply chain security guidance"
+      ],
+      "kql": [
+        {
+          "platform": "sentinel",
+          "table": "SigninLogs",
+          "name": "Third-party/guest account sign-ins to sensitive apps",
+          "description": "Hunting starting point for supplier account abuse. Untested.",
+          "query": "SigninLogs\n| where TimeGenerated > ago(7d)\n| where UserType == \"Guest\" or UserPrincipalName contains \"#EXT#\"\n| where ResultType == 0\n| summarize Logons=count(), IPs=dcount(IPAddress), Countries=dcount(tostring(LocationDetails.countryOrRegion)) by UserPrincipalName, AppDisplayName\n| where Countries > 2 or IPs > 5"
+        }
+      ],
+      "iocs": [
+        {
+          "type": "note",
+          "value": "No technical IOCs published",
+          "context": "Policy/assurance finding; no indicators in sources",
+          "confidence": "low",
+          "source": "The Record via gblock (secondary)"
+        },
+        {
+          "type": "ttp",
+          "value": "Third-party supplier compromise (T1199)",
+          "context": "Attackers pivot via suppliers holding personnel data",
+          "confidence": "medium"
+        }
+      ],
+      "references": [
+        "https://www.gblock.app/articles/uk-police-supplier-data-breaches-watchdog-2026",
+        "https://therecord.media/UK-cyberattacks-ncsc-china"
+      ]
+    },
+    {
+      "rank": 4,
       "id": "TI-2026-10-21-002",
       "title": "Carry-over: 'FortiBleed' - Stolen Fortinet Firewall Credentials Include UK Government, Embassy, Council and NHS Accounts Offered for Sale",
       "cve_ids": [],
@@ -300,10 +355,10 @@
       "references": [
         "https://bristol247.com/news-and-features/news/primary-school-hit-by-second-cyber-attack-as-records-exported-in-data-breach"
       ],
-      "rank": 4
+      "rank": 5
     },
     {
-      "rank": 5,
+      "rank": 6,
       "id": "TI-2026-10-21-004",
       "title": "Citrix NetScaler ADC/Gateway Zero-Days Under Active Exploitation - NCSC and NHS England Alerts; UK Follow-on SAML Flaw Pending (CVE-2026-88771, CVE-2026-88772, CVE-2026-107406)",
       "cve_ids": [
@@ -415,7 +470,7 @@
       ]
     },
     {
-      "rank": 6,
+      "rank": 7,
       "id": "TI-2026-10-24-001",
       "title": "Collabora Online Built-in CODE Server OS Command Injection (CVE-2026-110447) Added to CISA KEV - Nextcloud Deployments at Risk",
       "cve_ids": [
@@ -471,7 +526,7 @@
       ]
     },
     {
-      "rank": 7,
+      "rank": 8,
       "id": "TI-2026-10-21-011",
       "title": "BeyondTrust Remote Support Authentication Bypass Exploited as Zero-Day by Suspected China-Nexus Actor - Added to CISA KEV 16 Oct (CVE-2026-102764)",
       "cve_ids": [
@@ -528,7 +583,7 @@
       ]
     },
     {
-      "rank": 8,
+      "rank": 9,
       "id": "TI-2026-10-21-005",
       "title": "Ivanti Connect Secure Chained Zero-Days (Auth Bypass + RCE + Root Privilege Escalation) Exploited by UTA0576 - Added to CISA KEV (CVE-2026-104935)",
       "cve_ids": [
@@ -598,74 +653,6 @@
         "https://thehackernews.com/2026/10/attacker-chains-three-ivanti-connect.html",
         "https://www.cisa.gov/news-events/alerts/2026/10/13/cisa-adds-two-known-exploited-vulnerabilities-catalog",
         "https://www.scworld.com/news/cisa-adds-chained-ivanti-connect-secure-bug-to-its-exploited-list"
-      ]
-    },
-    {
-      "rank": 9,
-      "id": "TI-2026-10-21-006",
-      "title": "CISA KEV Additions 2026-10-14: PAN-OS, Cisco Secure Email Gateway and Ahsay AhsayCBS Chain Exploited (CVE-2026-0322, CVE-2026-76519, CVE-2026-105133, CVE-2026-105134)",
-      "cve_ids": [
-        "CVE-2026-0322",
-        "CVE-2026-76519",
-        "CVE-2026-105133",
-        "CVE-2026-105134"
-      ],
-      "vendor": "Palo Alto Networks / Cisco / Ahsay",
-      "affected_products": [
-        "Palo Alto Networks PAN-OS",
-        "Cisco Secure Email Gateway",
-        "Ahsay AhsayCBS (backup server)"
-      ],
-      "category": "vulnerability_bundle",
-      "cvss_v3": null,
-      "severity": "high",
-      "exploitation_status": "exploited_in_the_wild",
-      "kev_listed": true,
-      "kev_due_date": null,
-      "patch_available": "partial",
-      "first_reported": "2026-10-14",
-      "last_updated": "2026-10-15",
-      "confidence": "low",
-      "summary": "CISA added four vulnerabilities to KEV on 2026-10-14 on evidence of active exploitation: CVE-2026-0322 (PAN-OS code injection), CVE-2026-76519 (Cisco Secure Email Gateway relative path traversal), and CVE-2026-105133/CVE-2026-105134 (AhsayCBS authentication bypass in the API component chained with command injection). No detailed exploitation reporting, federal due dates or UK victim data were found, and CVE-2026-0322 could not be corroborated beyond the CISA listing (a separate 2026 PAN-OS flaw, CVE-2026-0300, was exploited by suspected state actors from April). No NCSC alert was found. These products are common in UK public sector and MSP estates (firewalls, mail gateways, backup servers), so this is included as an inventory-and-patch priority rather than a confirmed UK incident.",
-      "recommended_actions": [
-        "Inventory PAN-OS, Cisco SEG and AhsayCBS exposure; apply vendor fixes and check internet exposure of management/API interfaces.",
-        "Treat AhsayCBS as high risk: it holds backups and can be chained pre-auth to command execution.",
-        "Check CISA KEV entries for due dates and vendor advisories for fixed versions."
-      ],
-      "kql": [
-        {
-          "platform": "defender_xdr",
-          "table": "DeviceProcessEvents",
-          "name": "Ahsay AhsayCBS spawning shells",
-          "description": "Detects command execution from the AhsayCBS Java process.",
-          "query": "DeviceProcessEvents\n| where Timestamp > ago(14d)\n| where InitiatingProcessFileName in~ (\"java.exe\",\"java\") and InitiatingProcessCommandLine has_any (\"cbs\",\"Ahsay\")\n| where FileName in~ (\"cmd.exe\",\"powershell.exe\",\"sh\",\"bash\")\n| project Timestamp, DeviceName, InitiatingProcessCommandLine, ProcessCommandLine"
-        },
-        {
-          "platform": "sentinel",
-          "table": "CommonSecurityLog",
-          "name": "PAN-OS - system/config events from management plane",
-          "description": "Config and admin changes on Palo Alto devices.",
-          "query": "CommonSecurityLog\n| where TimeGenerated > ago(14d)\n| where DeviceVendor == \"Palo Alto Networks\" and Activity has_any (\"config\",\"SYSTEM\")\n| project TimeGenerated, DeviceName, SourceIP, Activity, Message"
-        }
-      ],
-      "iocs": [
-        {
-          "type": "malware",
-          "value": "None published",
-          "context": "No indicators available for these KEV additions.",
-          "confidence": "low",
-          "source": "CISA KEV listing"
-        },
-        {
-          "type": "note",
-          "value": "No technical indicators identified; CVE-2026-0322 unverified beyond the CISA listing as relayed by search.",
-          "context": "Provenance statement - filter before ingestion.",
-          "confidence": "high",
-          "source": "analyst note"
-        }
-      ],
-      "references": [
-        "https://www.cisa.gov/news-events/alerts/2026/10/14/cisa-adds-four-known-exploited-vulnerabilities-catalog"
       ]
     },
     {
@@ -788,17 +775,6 @@
           "CVE-2026-107406"
         ],
         "confidence": "low"
-      },
-      {
-        "value": "None published",
-        "related_entry": "TI-2026-10-21-006",
-        "related_cves": [
-          "CVE-2026-0322",
-          "CVE-2026-76519",
-          "CVE-2026-105133",
-          "CVE-2026-105134"
-        ],
-        "confidence": "low"
       }
     ],
     "actor": [
@@ -838,6 +814,11 @@
         "related_cves": [
           "CVE-2026-104935"
         ],
+        "confidence": "medium"
+      },
+      {
+        "value": "Third-party supplier compromise (T1199)",
+        "related_entry": "TI-2026-10-28-001",
         "confidence": "medium"
       }
     ]
