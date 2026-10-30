@@ -19,6 +19,7 @@
     --accent-hot:#FF5A1F;
     --accent-soft:rgba(255,106,26,.12);
     --accent-line:rgba(255,106,26,.32);
+    --bar:rgba(255,106,26,.5);
     --radius:4px;
     --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
     --sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
@@ -139,7 +140,8 @@
   .pill.nopatch{background:var(--accent-hot);border-color:var(--accent-hot);color:#0A0A0A}
   .pill.partial{background:transparent;border-color:var(--accent);color:var(--accent)}
   .pill.plain{background:transparent;border-color:var(--border);color:var(--muted);
-    text-transform:none;letter-spacing:0;font-weight:500}
+    text-transform:none;letter-spacing:0;font-weight:500;
+    white-space:normal;max-width:100%;overflow-wrap:anywhere}
   .cve{font-family:var(--mono);font-size:11.5px;color:var(--ink-dim);background:var(--raised);
     border:1px solid var(--border);border-radius:3px;padding:2px 7px;white-space:nowrap}
   .cve.more{color:var(--muted);background:transparent}
@@ -250,6 +252,61 @@
   }
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 
+  /* ---------- report archive timeline ---------- */
+  .timeline{margin:22px 0 0;border:1px solid var(--border);border-radius:var(--radius);
+    background:var(--surface);padding:15px 16px 16px}
+  .tl-head{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:baseline;
+    justify-content:space-between;margin-bottom:14px}
+  .tl-head h2{margin:0;font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;
+    color:var(--muted);font-weight:650}
+  .tl-meta{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .tl-meta b{color:var(--ink);font-weight:600}
+  .tl-latest{font-size:12px;color:var(--accent);text-decoration:none;font-weight:600;
+    border:1px solid var(--accent-line);border-radius:999px;padding:3px 11px;white-space:nowrap}
+  .tl-latest:hover{background:var(--accent-soft)}
+  .tl-chart{position:relative}
+  .tl-bars{display:flex;align-items:flex-end;gap:3px;height:62px;overflow-x:auto;
+    overflow-y:hidden;padding-bottom:1px}
+  .tl-bar{flex:1 1 0;min-width:5px;height:100%;background:none;border:0;
+    padding:0;cursor:pointer;display:flex;align-items:flex-end}
+  .tl-bar:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .tl-fill{width:100%;min-height:3px;border-radius:3px 3px 0 0;background:var(--bar);
+    transition:background .12s}
+  .tl-bar:hover .tl-fill,.tl-bar:focus-visible .tl-fill{background:var(--accent)}
+  .tl-bar.is-current .tl-fill{background:var(--accent-hot)}
+  .tl-axis{display:flex;justify-content:space-between;gap:12px;margin-top:8px;
+    font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .tl-tip{position:absolute;top:calc(100% + 8px);z-index:5;pointer-events:none;
+    background:var(--raised);border:1px solid var(--border-strong);border-radius:var(--radius);
+    padding:9px 11px;min-width:190px;max-width:330px;box-shadow:0 6px 20px rgba(0,0,0,.5)}
+  .tl-tip[hidden]{display:none}
+  .tl-tip .t-d{font-family:var(--mono);font-size:12px;color:var(--accent);margin:0 0 5px}
+  .tl-tip .t-h{margin:0 0 7px;font-size:12.5px;color:var(--ink);line-height:1.45}
+  .tl-tip .t-c{margin:0;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .tl-list{list-style:none;margin:17px 0 0;padding:0;border-top:1px solid var(--border)}
+  .tl-list li{margin:0}
+  .tl-row{display:flex;gap:14px;align-items:baseline;padding:9px 4px;
+    border-bottom:1px solid var(--border);text-decoration:none;color:inherit}
+  .tl-row:hover{background:var(--raised)}
+  .tl-row:hover .tl-h{color:var(--accent)}
+  .tl-row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  .tl-d{flex:none;width:86px;font-family:var(--mono);font-size:12.5px;color:var(--accent)}
+  .tl-h{flex:1;min-width:0;font-size:13.5px;color:var(--ink-dim);white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .tl-c{flex:none;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+    font-variant-numeric:tabular-nums}
+  .tl-now{flex:none;font-size:10px;letter-spacing:.06em;text-transform:uppercase;font-weight:650;
+    border:1px solid var(--accent-line);color:var(--accent);border-radius:999px;padding:1px 7px}
+  .tl-more{margin-top:13px}
+  @media (max-width:720px){
+    .tl-c{display:none}
+    .tl-d{width:72px}
+    /* Keep the caption - it is what names the series - but give it its own
+       line instead of letting it wrap between the two date labels. */
+    .tl-axis{flex-wrap:wrap}
+    .tl-axis span:nth-child(2){order:3;flex:1 0 100%;text-align:center;margin-top:4px}
+  }
+
   /* ---------- print ---------- */
   @media print{
     :root{--bg:#fff;--surface:#fff;--raised:#f4f2ee;--border:#d5d2cb;--border-strong:#b5b1a8;
@@ -264,6 +321,10 @@
     .card[data-status="exploited_in_the_wild"] .rank{background:#B83F00;color:#fff}
     .pill.st-exploited,.pill.nopatch{background:#B83F00;color:#fff}
     .kql pre{white-space:pre-wrap;word-break:break-word}
+    .tl-row[hidden]{display:flex!important}
+    .tl-more,.tl-tip{display:none!important}
+    .tl-bars{overflow:visible}
+    .timeline{page-break-inside:avoid}
     .prov{border-left-width:2px}
     .prov-body{display:block!important}
     a[href]::after{content:" (" attr(href) ")";font-size:8pt;color:#5d5a54}
@@ -294,6 +355,7 @@
   <div id="alert-slot"></div>
   <section class="tiles" id="tiles" aria-label="Report statistics"></section>
   <section class="posture" id="posture" aria-label="Exploitation posture"></section>
+  <section class="timeline" id="timeline" aria-label="Report archive timeline" hidden></section>
 
   <div class="controls">
     <div class="search">
@@ -334,6 +396,7 @@
 </main>
 
 <script id="ti-data" type="application/json">__TI_DATA__</script>
+<script id="ti-index" type="application/json">__TI_INDEX__</script>
 <script>
 (function(){
   "use strict";
@@ -777,6 +840,137 @@
     }
   }
 
+  /* ---------- report archive timeline ---------- */
+  var TL_SHOWN = 10;
+
+  function shortDate(iso){
+    var p = String(iso).split("-");
+    if (p.length !== 3) return String(iso);
+    var mon = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+p[1]-1];
+    return (+p[2]) + " " + mon;
+  }
+  function longDate(iso){
+    var p = String(iso).split("-");
+    return p.length === 3 ? shortDate(iso) + " " + p[0] : String(iso);
+  }
+  /* A dated report sits in reports/; the stable copy sits at the repo root.
+     Work out which, so archive links resolve from either location. */
+  function archivePrefix(){
+    return location.pathname.indexOf("/reports/") > -1 ? "" : "reports/";
+  }
+
+  function renderTimeline(index){
+    var box = document.getElementById("timeline");
+    box.textContent = "";
+    var reports = (index && index.reports) || [];
+    if (!reports.length){ box.hidden = true; return; }
+    box.hidden = false;
+
+    var current = index.generated_for;
+    var prefix  = archivePrefix();
+    var peak    = Math.max.apply(null, reports.map(function(r){ return r.actively_exploited || 0; }));
+    if (!peak) peak = 1;
+
+    /* header */
+    var head = el("div","tl-head");
+    head.appendChild(el("h2", null, "Report archive"));
+    var meta = el("span","tl-meta");
+    meta.appendChild(el("b", null, reports.length));
+    meta.appendChild(document.createTextNode(
+      " reports · " + longDate(reports[0].date) +
+      " – " + longDate(reports[reports.length-1].date)));
+    head.appendChild(meta);
+    /* A dated report's index stops at its own date, so it can never name a
+       later report. The stable root copy is always the newest, so offer that
+       as the way forward. Omitted at the root, where it is the current page. */
+    if (!prefix){
+      var latest = el("a","tl-latest","Latest report \u2192");
+      latest.href = "../ti-report.html";
+      head.appendChild(latest);
+    }
+    box.appendChild(head);
+
+    /* bars - one series (actively exploited per report), so no legend box;
+       the caption names it. Hover and keyboard focus both open the tooltip. */
+    var chart = el("div","tl-chart");
+    var bars  = el("div","tl-bars");
+    var tip   = el("div","tl-tip"); tip.hidden = true;
+
+    reports.forEach(function(r){
+      var b = el("button","tl-bar" + (r.date === current ? " is-current" : ""));
+      b.type = "button";
+      b.setAttribute("aria-label",
+        longDate(r.date) + ": " + (r.actively_exploited||0) + " actively exploited of " +
+        r.entries + " entries");
+      var fill = el("span","tl-fill");
+      fill.style.height = Math.max(4, Math.round((r.actively_exploited||0) / peak * 100)) + "%";
+      b.appendChild(fill);
+
+      function show(){
+        tip.textContent = "";
+        tip.appendChild(el("p","t-d", longDate(r.date) + (r.date === current ? "  (this report)" : "")));
+        if (r.headline) tip.appendChild(el("p","t-h", r.headline));
+        tip.appendChild(el("p","t-c",
+          r.entries + " entries · " + (r.actively_exploited||0) + " exploited · " +
+          (r.kev_listed||0) + " KEV · " + (r.cves||0) + " CVEs"));
+        tip.hidden = false;
+        /* clamp the tooltip inside the chart */
+        var left = b.offsetLeft + b.offsetWidth/2 - bars.scrollLeft;
+        var w = tip.offsetWidth || 200;
+        var maxLeft = chart.clientWidth - w;
+        tip.style.left = Math.max(0, Math.min(left - w/2, maxLeft < 0 ? 0 : maxLeft)) + "px";
+      }
+      function hide(){ tip.hidden = true; }
+      b.addEventListener("mouseenter", show);
+      b.addEventListener("focus", show);
+      b.addEventListener("mouseleave", hide);
+      b.addEventListener("blur", hide);
+      b.addEventListener("click", function(){ location.href = prefix + r.file; });
+      bars.appendChild(b);
+    });
+
+    chart.appendChild(tip);
+    chart.appendChild(bars);
+    var axis = el("div","tl-axis");
+    axis.appendChild(el("span", null, shortDate(reports[0].date)));
+    axis.appendChild(el("span", null, "actively exploited per report · peak " + peak));
+    axis.appendChild(el("span", null, shortDate(reports[reports.length-1].date)));
+    chart.appendChild(axis);
+    box.appendChild(chart);
+
+    /* newest-first list - this doubles as the chart's table view */
+    var list = el("ol","tl-list");
+    var ordered = reports.slice().reverse();
+    ordered.forEach(function(r, i){
+      var li = el("li");
+      if (i >= TL_SHOWN) li.hidden = true;
+      var a = el("a","tl-row" + (r.date === current ? " is-current" : ""));
+      a.href = prefix + r.file;
+      a.appendChild(el("span","tl-d", shortDate(r.date)));
+      a.appendChild(el("span","tl-h", r.headline || "—"));
+      if (r.date === current) a.appendChild(el("span","tl-now","viewing"));
+      a.appendChild(el("span","tl-c",
+        r.entries + "e · " + (r.actively_exploited||0) + "x · " + (r.kev_listed||0) + "k"));
+      li.appendChild(a);
+      list.appendChild(li);
+    });
+    box.appendChild(list);
+
+    if (ordered.length > TL_SHOWN){
+      var more = el("button","btn tl-more", "Show all " + ordered.length + " reports");
+      more.type = "button";
+      var open = false;
+      more.addEventListener("click", function(){
+        open = !open;
+        Array.prototype.forEach.call(list.children, function(li, i){
+          li.hidden = open ? false : i >= TL_SHOWN;
+        });
+        more.textContent = open ? "Show recent only" : "Show all " + ordered.length + " reports";
+      });
+      box.appendChild(more);
+    }
+  }
+
   /* ---------- boot ---------- */
   function render(data){
     DATA = data;
@@ -843,6 +1037,11 @@
   var embedded = null;
   try { embedded = JSON.parse(document.getElementById("ti-data").textContent); } catch(e){}
   if (embedded && embedded.vulnerabilities) render(embedded);
+
+  /* The archive index describes the reports/ directory, not the data on show,
+     so it is rendered once and left alone when another config is loaded. */
+  try { renderTimeline(JSON.parse(document.getElementById("ti-index").textContent)); }
+  catch(e){ document.getElementById("timeline").hidden = true; }
 
   if (location.protocol === "http:" || location.protocol === "https:"){
     fetch("ti-output-config.json", {cache:"no-store"}).then(function(r){
