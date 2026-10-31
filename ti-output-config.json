@@ -3,18 +3,18 @@
   "feed_id": "ti-daily-top10",
   "feed_name": "Daily Threat Intelligence Output - Top 10 Vulnerabilities and Cyber Incidents",
   "report": {
-    "check_performed_at": "2026-10-30T10:45:00Z",
-    "check_performed_at_local": "2026-10-30",
+    "check_performed_at": "2026-10-31T10:45:00Z",
+    "check_performed_at_local": "2026-10-31",
     "timezone": "UTC",
     "coverage_window": {
-      "start": "2026-10-29T10:45:00Z",
-      "end": "2026-10-30T10:45:00Z",
+      "start": "2026-10-30T10:45:00Z",
+      "end": "2026-10-31T10:45:00Z",
       "duration_hours": 24.0,
-      "note": "UK-focused run. No new confirmed UK government compromise or newly dated UK incident found in the window; search returned nothing dated 29-30 Oct. PHP2Shell remains the top item (KEV-listed 26 Oct; no confirmed compromise of central government systems; a minister said Budget security was not breached). Remaining entries are carry-overs unchanged."
+      "note": "UK-focused run. No new confirmed UK government or UK corporate incident dated within the window was found. New item: CISA KEV additions of Cisco ASA/FTD (CVE-2026-76418) and GitLab (CVE-2026-97229), not UK-specific. TFG London entry dropped to make room; other entries are carry-overs."
     },
     "entry_count": 10,
     "generated_by": "scheduled-claude-research",
-    "next_check_due": "2026-10-31T10:45:00Z"
+    "next_check_due": "2026-11-01T10:45:00Z"
   },
   "collection_metadata": {
     "collection_method": "open-source web search aggregation (search snippets only)",
@@ -40,7 +40,8 @@
       "2026-10-27 run: search-result summaries only (cisa.gov fetch failed); PHP2Shell KEV addition on 26 Oct is from search snippets and the KEV due date was not retrieved; no new UK government or UK corporate incident confirmed in the window.",
       "2026-10-28 run: search-result summaries only; HMICFRS/Record details are secondary and unverified; Adobe CVE-2026-48356 KEV status could not be corroborated.",
       "2026-10-29 run: search-result summaries only; nothing new dated within the window was found, so entries are carry-overs and remain secondary-source and unverified. Reports that a Baroness Lloyd Lords statement cited 32 unavailable central government services come via search summary only.",
-      "2026-10-30 run: search-result summaries only; nothing new dated within the window was found, so entries are carry-overs and remain secondary-source and unverified."
+      "2026-10-30 run: search-result summaries only; nothing new dated within the window was found, so entries are carry-overs and remain secondary-source and unverified.",
+      "2026-10-31 run: search-result summaries only; no new UK-specific incident confirmed in the window; KEV dates for Cisco/GitLab conflict between outlets."
     ],
     "confidence_legend": {
       "high": "Corroborated by the vendor advisory or by multiple independent reputable sources.",
@@ -529,6 +530,71 @@
     },
     {
       "rank": 8,
+      "id": "TI-2026-10-31-001",
+      "title": "CISA KEV Adds Cisco ASA/FTD SSL VPN DoS (CVE-2026-76418) and GitLab CVSS 10 RCE (CVE-2026-97229) - Edge/DevOps Exposure Relevant to UK Public Sector",
+      "cve_ids": [
+        "CVE-2026-76418",
+        "CVE-2026-97229"
+      ],
+      "vendor": "Cisco / GitLab",
+      "affected_products": [
+        "Cisco Secure Firewall ASA and FTD (SSL VPN)",
+        "GitLab (CI/CD configuration regex handling)"
+      ],
+      "category": "vulnerability_bundle",
+      "cvss_v3": 10.0,
+      "severity": "critical",
+      "exploitation_status": "exploited_in_the_wild",
+      "kev_listed": true,
+      "kev_due_date": "2026-11-01",
+      "patch_available": "yes",
+      "first_reported": "2026-10-29",
+      "last_updated": "2026-10-30",
+      "confidence": "low",
+      "summary": "Not UK-specific: no UK victim identified. Secondary reports (The Hacker News, Rescana) say CISA added two exploited flaws to KEV on 29 Oct: a Cisco ASA/FTD SSL VPN denial-of-service (CVE-2026-76418) with no vendor IoCs published, and a GitLab unauthenticated RCE (CVE-2026-97229, CVSS 10.0) via a crafted regex in CI/CD config, linked to a failed exploitation attempt disclosed by Alpine Linux. Federal due date 1 Nov. Both product families are common in UK government and corporate estates (VPN perimeter, source-code/CI platforms), so exposure is plausible. Dates conflict slightly between outlets and primary CISA/vendor pages were not retrieved. Context: UK window otherwise surfaced no new dated UK government incident; the NCSC PHP2Shell alert (rank 1) remains the main UK-relevant item.",
+      "recommended_actions": [
+        "Patch GitLab and Cisco ASA/FTD to fixed releases per vendor advisories",
+        "Inventory internet-exposed GitLab instances and ASA/FTD SSL VPN endpoints",
+        "Review GitLab CI/CD configs and runner logs for anomalous regex-heavy or newly added pipeline definitions"
+      ],
+      "kql": [
+        {
+          "platform": "sentinel",
+          "table": "CommonSecurityLog",
+          "name": "Cisco ASA/FTD SSL VPN device reload or crash events",
+          "description": "Untested. Hunts for restarts/crash messages on Cisco firewalls consistent with DoS exploitation.",
+          "query": "CommonSecurityLog\n| where TimeGenerated > ago(7d)\n| where DeviceVendor =~ \"Cisco\"\n| where Message has_any (\"reload\", \"traceback\", \"crashinfo\", \"SSL VPN\")\n| summarize Events=count() by DeviceName, bin(TimeGenerated, 1h)\n| order by Events desc"
+        },
+        {
+          "platform": "defender_xdr",
+          "table": "DeviceNetworkEvents",
+          "name": "Outbound connections from GitLab hosts spawned by shell",
+          "description": "Untested. Finds shells on GitLab hosts making outbound connections.",
+          "query": "DeviceProcessEvents\n| where Timestamp > ago(7d)\n| where InitiatingProcessFileName in~ (\"gitlab-puma\",\"puma\",\"sidekiq\",\"gitlab-workhorse\")\n| where FileName in~ (\"sh\",\"bash\",\"curl\",\"wget\")\n| project Timestamp, DeviceName, InitiatingProcessFileName, FileName, ProcessCommandLine"
+        }
+      ],
+      "iocs": [
+        {
+          "type": "note",
+          "value": "No public IoCs",
+          "context": "Cisco, CISA and CCCS had published no indicators for CVE-2026-76418 as of 30 Oct; none retrieved for GitLab.",
+          "confidence": "low",
+          "source": "secondary reporting"
+        },
+        {
+          "type": "ttp",
+          "value": "GitLab CI/CD config regex abuse leading to unauthenticated RCE",
+          "context": "CVE-2026-97229 exploitation attempt reported by Alpine Linux",
+          "confidence": "low"
+        }
+      ],
+      "references": [
+        "https://thehackernews.com/2026/10/cisa-adds-actively-exploited-gitlab-rce.html",
+        "https://www.rescana.com/post/cisco-secure-firewall-asa-ftd-cve-2026-76418-ssl-ra-vpn-dos-kev"
+      ]
+    },
+    {
+      "rank": 9,
       "id": "TI-2026-10-21-011",
       "title": "BeyondTrust Remote Support Authentication Bypass Exploited as Zero-Day by Suspected China-Nexus Actor - Added to CISA KEV 16 Oct (CVE-2026-102764)",
       "cve_ids": [
@@ -585,7 +651,7 @@
       ]
     },
     {
-      "rank": 9,
+      "rank": 10,
       "id": "TI-2026-10-21-005",
       "title": "Ivanti Connect Secure Chained Zero-Days (Auth Bypass + RCE + Root Privilege Escalation) Exploited by UTA0576 - Added to CISA KEV (CVE-2026-104935)",
       "cve_ids": [
@@ -655,64 +721,6 @@
         "https://thehackernews.com/2026/10/attacker-chains-three-ivanti-connect.html",
         "https://www.cisa.gov/news-events/alerts/2026/10/13/cisa-adds-two-known-exploited-vulnerabilities-catalog",
         "https://www.scworld.com/news/cisa-adds-chained-ivanti-connect-secure-bug-to-its-exploited-list"
-      ]
-    },
-    {
-      "rank": 10,
-      "id": "TI-2026-10-21-007",
-      "title": "TFG London (Hobbs, Whistles, Phase Eight) Cyber Incident Disrupts UK Retail IT Systems; Second UK Retailer Incident in a Week",
-      "cve_ids": [],
-      "vendor": "The Foschini Group (TFG London)",
-      "affected_products": [
-        "TFG London corporate IT and e-commerce systems supporting Phase Eight, Hobbs and Whistles"
-      ],
-      "category": "incident",
-      "cvss_v3": null,
-      "severity": "high",
-      "exploitation_status": "no_known_exploitation",
-      "kev_listed": false,
-      "kev_due_date": null,
-      "patch_available": "no",
-      "first_reported": "2026-10-11",
-      "last_updated": "2026-10-15",
-      "confidence": "medium",
-      "summary": "UPDATE 2026-10-15: Coverage on 2026-10-13/14 (ITV, Yorkshire Post, The Register) adds that TFG has reported the incident to the relevant UK authorities, is working with external cyber specialists, says it has no reason to believe payment data is at risk (card processing is via a third-party provider), and that TFG Africa/Australia are unaffected. Online orders placed after 11 Oct may be delayed and postal returns are unavailable. Data impact is still unconfirmed; no later statement found. Prior detail: No new development found in the 2026-10-14 window (carry-over). TFG London, the UK arm of South Africa's Foschini Group, disclosed on 2026-10-13 that it detected a cyber incident on Sunday 2026-10-11 affecting IT systems for the Phase Eight, Hobbs and Whistles brands. Stores remain open but several systems are down, some websites are impaired and online orders placed since 2026-10-11 may be delayed; customers have been asked not to resubmit orders. The company has engaged external specialists, activated incident-response and continuity plans, notified UK authorities and says it has no reason to believe payment details are at risk, but has not yet determined whether customer or other data was taken. Inside Story and White Stuff run on separate systems and were not affected. Press describes it as the second attack on a UK retailer in about a week (ASOS disclosed unauthorised access to personal data the previous week). Some outlets link the activity to the ShinyHunters group; TFG has not confirmed attribution, so treat that as an unverified lead. No CVE, initial access vector or IOCs have been published. Relevance to UK corporates: continued targeting of UK retail via help-desk social engineering, third-party and SaaS access has been the pattern since the 2025 M&S/Co-op/Harrods wave.",
-      "recommended_actions": [
-        "Retail and consumer brands: review help-desk identity-verification and MFA reset procedures and privileged-access paths.",
-        "Monitor for phishing/smishing impersonating the affected brands; customers should not resubmit orders or follow links in unsolicited messages.",
-        "Review third-party/SaaS (CRM, ticketing, data-warehouse) tokens and OAuth grants for anomalous access.",
-        "Watch ICO and TFG statements for confirmation of data impact."
-      ],
-      "kql": [
-        {
-          "platform": "sentinel",
-          "table": "AuditLogs",
-          "name": "Help-desk driven MFA/password resets followed by risky sign-in",
-          "description": "Generic hunt for the social-engineering pattern used against UK retailers. Not specific to TFG; no IOCs published.",
-          "query": "let resets = AuditLogs\n| where TimeGenerated > ago(14d)\n| where OperationName in (\"Reset password (by admin)\",\"Reset user password\",\"User registered security info\",\"Admin registered security info\")\n| extend Target = tostring(TargetResources[0].userPrincipalName)\n| project ResetTime=TimeGenerated, Target, OperationName, Actor=tostring(InitiatedBy.user.userPrincipalName);\nSigninLogs\n| where TimeGenerated > ago(14d) and RiskLevelDuringSignIn in (\"medium\",\"high\")\n| join kind=inner resets on $left.UserPrincipalName == $right.Target\n| where TimeGenerated between (ResetTime .. ResetTime + 4h)\n| project TimeGenerated, UserPrincipalName, IPAddress, Location, AppDisplayName, OperationName, Actor, RiskLevelDuringSignIn"
-        }
-      ],
-      "iocs": [
-        {
-          "type": "actor",
-          "value": "ShinyHunters (unconfirmed attribution)",
-          "context": "Some media link the incident to this group; TFG has not confirmed.",
-          "confidence": "low",
-          "source": "Press reports (as relayed)"
-        },
-        {
-          "type": "note",
-          "value": "No technical indicators have been published for the TFG London incident.",
-          "context": "Provenance statement - filter before ingestion.",
-          "confidence": "high",
-          "source": "analyst note"
-        }
-      ],
-      "references": [
-        "https://www.retail-week.com/fashion/hobbs-and-whistles-parent-company-hit-by-cyber-attack/7052354.article",
-        "https://www.theindustry.fashion/hobbs-and-whistles-owner-struck-by-cyber-attack/",
-        "https://www.itpro.com/security/cyber-attacks/another-major-fashion-retailer-hit-by-cyber-attack",
-        "https://londoncrimenews.co.uk/fraud-cybercrime/hobbs-whistles-owner-tfg-london-hit-by-cyber-attack"
       ]
     }
   ],
@@ -789,12 +797,6 @@
         "confidence": "medium"
       },
       {
-        "value": "ShinyHunters (unconfirmed attribution)",
-        "related_entry": "TI-2026-10-21-007",
-        "related_cves": [],
-        "confidence": "low"
-      },
-      {
         "value": "Russian-speaking threat actors (unattributed)",
         "related_entry": "TI-2026-10-21-002",
         "related_cves": [],
@@ -822,6 +824,14 @@
         "value": "Third-party supplier compromise (T1199)",
         "related_entry": "TI-2026-10-28-001",
         "confidence": "medium"
+      },
+      {
+        "value": "GitLab CI/CD config regex abuse leading to unauthenticated RCE",
+        "related_entry": "TI-2026-10-31-001",
+        "related_cves": [
+          "CVE-2026-97229"
+        ],
+        "confidence": "low"
       }
     ]
   },
@@ -831,7 +841,7 @@
     "kev_listed": 6,
     "no_patch_available": 2,
     "partial_patch_available": 4,
-    "total_cves_referenced": 12,
+    "total_cves_referenced": 10,
     "total_kql_queries": 15,
     "total_iocs": 25,
     "kev_deadlines_passed_or_due": [
