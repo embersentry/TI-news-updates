@@ -3,18 +3,18 @@
   "feed_id": "ti-daily-top10",
   "feed_name": "Daily Threat Intelligence Output - Top 10 Vulnerabilities and Cyber Incidents",
   "report": {
-    "check_performed_at": "2026-10-31T10:45:00Z",
-    "check_performed_at_local": "2026-10-31",
+    "check_performed_at": "2026-11-01T10:45:00Z",
+    "check_performed_at_local": "2026-11-01",
     "timezone": "UTC",
     "coverage_window": {
-      "start": "2026-10-30T10:45:00Z",
-      "end": "2026-10-31T10:45:00Z",
+      "start": "2026-10-31T10:45:00Z",
+      "end": "2026-11-01T10:45:00Z",
       "duration_hours": 24.0,
-      "note": "UK-focused run. No new confirmed UK government or UK corporate incident dated within the window was found. New item: CISA KEV additions of Cisco ASA/FTD (CVE-2026-76418) and GitLab (CVE-2026-97229), not UK-specific. TFG London entry dropped to make room; other entries are carry-overs."
+      "note": "UK-focused run. No new confirmed UK government or UK corporate incident, and no new in-the-wild exploited vulnerability, dated within the window was found. Entries are carry-overs; Cisco ASA/FTD CVE-2026-76418 exploitation reportedly still ongoing as of 31 Oct with actor unidentified."
     },
     "entry_count": 10,
     "generated_by": "scheduled-claude-research",
-    "next_check_due": "2026-11-01T10:45:00Z"
+    "next_check_due": "2026-11-02T10:45:00Z"
   },
   "collection_metadata": {
     "collection_method": "open-source web search aggregation (search snippets only)",
@@ -41,7 +41,8 @@
       "2026-10-28 run: search-result summaries only; HMICFRS/Record details are secondary and unverified; Adobe CVE-2026-48356 KEV status could not be corroborated.",
       "2026-10-29 run: search-result summaries only; nothing new dated within the window was found, so entries are carry-overs and remain secondary-source and unverified. Reports that a Baroness Lloyd Lords statement cited 32 unavailable central government services come via search summary only.",
       "2026-10-30 run: search-result summaries only; nothing new dated within the window was found, so entries are carry-overs and remain secondary-source and unverified.",
-      "2026-10-31 run: search-result summaries only; no new UK-specific incident confirmed in the window; KEV dates for Cisco/GitLab conflict between outlets."
+      "2026-10-31 run: search-result summaries only; no new UK-specific incident confirmed in the window; KEV dates for Cisco/GitLab conflict between outlets.",
+      "2026-11-01 run: search-result summaries only; nothing new dated within the window was found, so entries are carry-overs and remain secondary-source and unverified."
     ],
     "confidence_legend": {
       "high": "Corroborated by the vendor advisory or by multiple independent reputable sources.",
