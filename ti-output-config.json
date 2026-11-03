@@ -3,18 +3,18 @@
   "feed_id": "ti-daily-top10",
   "feed_name": "Daily Threat Intelligence Output - Top 10 Vulnerabilities and Cyber Incidents",
   "report": {
-    "check_performed_at": "2026-11-02T10:45:00Z",
-    "check_performed_at_local": "2026-11-02",
+    "check_performed_at": "2026-11-03T10:45:00Z",
+    "check_performed_at_local": "2026-11-03",
     "timezone": "UTC",
     "coverage_window": {
-      "start": "2026-11-01T10:45:00Z",
-      "end": "2026-11-02T10:45:00Z",
+      "start": "2026-11-02T10:45:00Z",
+      "end": "2026-11-03T10:45:00Z",
       "duration_hours": 24.0,
-      "note": "UK-focused run. No new confirmed UK government or UK corporate incident, and no new in-the-wild exploited vulnerability dated within the window was found. Entries are carry-overs; Cisco ASA/FTD CVE-2026-76418 (CISA KEV 29 Oct, federal deadline 1 Nov) has no attribution or campaign IoCs published."
+      "note": "UK-focused run. No new confirmed compromise of UK government or UK corporate systems and no new UK-targeted in-the-wild exploitation dated within the window was found. New item: NCSC State of the Cyber Nation report (3 Nov). Ivanti Connect Secure follow-on CVEs (CVE-2026-111357/118527) added to the Ivanti entry. Other entries are carry-overs."
     },
     "entry_count": 10,
     "generated_by": "scheduled-claude-research",
-    "next_check_due": "2026-11-03T10:45:00Z"
+    "next_check_due": "2026-11-04T10:45:00Z"
   },
   "collection_metadata": {
     "collection_method": "open-source web search aggregation (search snippets only)",
@@ -43,7 +43,8 @@
       "2026-10-30 run: search-result summaries only; nothing new dated within the window was found, so entries are carry-overs and remain secondary-source and unverified.",
       "2026-10-31 run: search-result summaries only; no new UK-specific incident confirmed in the window; KEV dates for Cisco/GitLab conflict between outlets.",
       "2026-11-01 run: search-result summaries only; nothing new dated within the window was found, so entries are carry-overs and remain secondary-source and unverified.",
-      "2026-11-02 run: search-result summaries only; nothing new dated within the window was found, so entries are carry-overs and remain secondary-source and unverified. Search found no reports of confirmed compromise at UK councils from PHP2Shell (takedowns precautionary)."
+      "2026-11-02 run: search-result summaries only; nothing new dated within the window was found, so entries are carry-overs and remain secondary-source and unverified. Search found no reports of confirmed compromise at UK councils from PHP2Shell (takedowns precautionary).",
+      "2026-11-03 run: search-result summaries only (page fetches blocked by network policy); nothing UK-targeted newly confirmed in the window, so most entries are carry-overs. BeyondTrust CVE-2026-102764 entry rotated out as oldest. Ivanti KEV status for the follow-on CVEs conflicts between sources."
     ],
     "confidence_legend": {
       "high": "Corroborated by the vendor advisory or by multiple independent reputable sources.",
@@ -145,6 +146,62 @@
       ]
     },
     {
+      "rank": 2,
+      "id": "TI-2026-11-03-001",
+      "title": "NCSC 'State of the Cyber Nation' Report: AI-Enabled Ransomware on UK Critical Infrastructure 'Highly Likely' by 2028; Government Web Services Being Checked After AI-Found PHP Flaws",
+      "cve_ids": [],
+      "vendor": "N/A",
+      "affected_products": [
+        "UK critical national infrastructure",
+        "UK public sector web estate (PHP)"
+      ],
+      "category": "incident",
+      "cvss_v3": null,
+      "severity": "informational",
+      "exploitation_status": "no_known_exploitation",
+      "kev_listed": false,
+      "kev_due_date": null,
+      "patch_available": "partial",
+      "first_reported": "2026-11-03",
+      "last_updated": "2026-11-03",
+      "confidence": "medium",
+      "summary": "UK government. On 3 Nov 2026 the NCSC (CEO Richard Horne) published its State of the Cyber Nation assessment, judging it 'highly likely' that AI-powered malware will feature in ransomware attacks on UK critical national infrastructure by 2028. NCSC expects AI to accelerate existing tactics rather than create new attack routes, with attacker adoption uneven, and attributes exposure partly to underinvestment in cyber security. Reporting says government is checking its online services following AI-discovered PHP flaws (see PHP2Shell entry) and that organisations unable to patch should consider taking systems offline. Same day the government cut Cyber Essentials prices for micro/small/mid-sized firms (GBP 80-125 + VAT); the Cyber Security and Resilience Bill remains pending. This is a strategic assessment, not an incident; no new confirmed compromise of UK government systems was found in the 24h window. Details are from search summaries (NCSC page fetch blocked) and unverified.",
+      "recommended_actions": [
+        "Prioritise patching internet-facing PHP estates to fixed releases or isolate them",
+        "Review ransomware resilience and offline backups for CNI-supporting services",
+        "Brief leadership on NCSC AI-threat assessment; align with Cyber Security and Resilience Bill readiness"
+      ],
+      "kql": [
+        {
+          "platform": "defender_xdr",
+          "table": "DeviceProcessEvents",
+          "name": "PHP web server spawning shell (PHP2Shell follow-up hunt)",
+          "description": "Untested. Web server/PHP processes spawning shells, relevant to AI-discovered PHP flaws under NCSC review.",
+          "query": "DeviceProcessEvents\n| where Timestamp > ago(7d)\n| where InitiatingProcessFileName in~ (\"php-fpm\",\"php\",\"php-cgi\",\"apache2\",\"httpd\",\"nginx\")\n| where FileName in~ (\"sh\",\"bash\",\"dash\",\"curl\",\"wget\")\n| project Timestamp, DeviceName, InitiatingProcessCommandLine, FileName, ProcessCommandLine"
+        }
+      ],
+      "iocs": [
+        {
+          "type": "note",
+          "value": "Strategic threat assessment; no technical indicators published.",
+          "context": "Provenance statement.",
+          "confidence": "high",
+          "source": "Search summaries"
+        },
+        {
+          "type": "ttp",
+          "value": "AI-assisted vulnerability discovery and ransomware",
+          "context": "NCSC assessment, horizon 2028.",
+          "confidence": "medium",
+          "source": "NCSC/press (as relayed)"
+        }
+      ],
+      "references": [
+        "https://www.ncsc.gov.uk/news/cyber-chief-uk-facing-ai-powered-attacks-on-critical-infrastructure-in-two-years",
+        "https://www.resultsense.com/news/2026-11-03-ncsc-state-of-cyber-nation-ai-ransomware-2028/"
+      ]
+    },
+    {
       "id": "TI-2026-10-21-001",
       "title": "Legal Aid Agency (MoJ) Breach Scope Widened - Records Back to 1978 and HMPPS Probation Data Found in Stolen Set",
       "cve_ids": [],
@@ -197,10 +254,10 @@
         "https://cybersecuritynews.com/uk-legal-aid-agency-data-breach",
         "https://gbhackers.com/uk-legal-aid-cyberattack"
       ],
-      "rank": 2
+      "rank": 3
     },
     {
-      "rank": 3,
+      "rank": 4,
       "id": "TI-2026-10-28-001",
       "title": "HMICFRS Warns Hackers Have Repeatedly Compromised Suppliers Holding UK Police Data - Most Contracts Lack Ongoing Cyber Assurance",
       "cve_ids": [],
@@ -254,7 +311,7 @@
       ]
     },
     {
-      "rank": 4,
+      "rank": 5,
       "id": "TI-2026-10-21-002",
       "title": "Carry-over: 'FortiBleed' - Stolen Fortinet Firewall Credentials Include UK Government, Embassy, Council and NHS Accounts Offered for Sale",
       "cve_ids": [],
@@ -360,10 +417,10 @@
       "references": [
         "https://bristol247.com/news-and-features/news/primary-school-hit-by-second-cyber-attack-as-records-exported-in-data-breach"
       ],
-      "rank": 5
+      "rank": 6
     },
     {
-      "rank": 6,
+      "rank": 7,
       "id": "TI-2026-10-21-004",
       "title": "Citrix NetScaler ADC/Gateway Zero-Days Under Active Exploitation - NCSC and NHS England Alerts; UK Follow-on SAML Flaw Pending (CVE-2026-88771, CVE-2026-88772, CVE-2026-107406)",
       "cve_ids": [
@@ -475,7 +532,7 @@
       ]
     },
     {
-      "rank": 7,
+      "rank": 8,
       "id": "TI-2026-10-24-001",
       "title": "Collabora Online Built-in CODE Server OS Command Injection (CVE-2026-110447) Added to CISA KEV - Nextcloud Deployments at Risk",
       "cve_ids": [
@@ -531,7 +588,7 @@
       ]
     },
     {
-      "rank": 8,
+      "rank": 9,
       "id": "TI-2026-10-31-001",
       "title": "CISA KEV Adds Cisco ASA/FTD SSL VPN DoS (CVE-2026-76418) and GitLab CVSS 10 RCE (CVE-2026-97229) - Edge/DevOps Exposure Relevant to UK Public Sector",
       "cve_ids": [
@@ -596,68 +653,13 @@
       ]
     },
     {
-      "rank": 9,
-      "id": "TI-2026-10-21-011",
-      "title": "BeyondTrust Remote Support Authentication Bypass Exploited as Zero-Day by Suspected China-Nexus Actor - Added to CISA KEV 16 Oct (CVE-2026-102764)",
-      "cve_ids": [
-        "CVE-2026-102764"
-      ],
-      "vendor": "BeyondTrust (vendor attribution disputed in one KEV snippet - Fortinet)",
-      "affected_products": [
-        "BeyondTrust Remote Support (formerly Bomgar) 26.2.3 and earlier"
-      ],
-      "category": "vulnerability",
-      "cvss_v3": null,
-      "severity": "critical",
-      "exploitation_status": "exploited_in_the_wild",
-      "kev_listed": true,
-      "kev_due_date": "2026-10-19",
-      "patch_available": "yes",
-      "first_reported": "2026-10-16",
-      "last_updated": "2026-10-16",
-      "confidence": "medium",
-      "summary": "New in window. CISA added CVE-2026-102764, a critical authentication bypass in BeyondTrust Remote Support (versions 26.2.3 and earlier), to the KEV catalog on 2026-10-16 with a 2026-10-19 federal due date. A KLM security brief cites Mandiant as saying a suspected China-nexus espionage group exploited it as a zero-day from late August. Remote-support tooling is widely used by UK public sector bodies, MSPs and corporates and gives privileged access to endpoints, so exposure is relevant to UK government supply chains. Caveats: one KEV catalog snippet lists the entry under Fortinet rather than BeyondTrust, and the CISA alert itself could not be retrieved; CVSS not confirmed. Verify against the CISA catalog and vendor advisory.",
-      "recommended_actions": [
-        "Upgrade BeyondTrust Remote Support to the fixed release per the vendor advisory; for cloud tenants confirm vendor patching.",
-        "Restrict internet exposure of the appliance and review session/admin logs since late August for unauthorised access.",
-        "Check MSP and third-party suppliers for BeyondTrust use and ask for assurance."
-      ],
-      "kql": [
-        {
-          "platform": "defender_xdr",
-          "table": "DeviceProcessEvents",
-          "name": "Child processes spawned by BeyondTrust Remote Support services",
-          "description": "Hunts for shells launched from Bomgar/BeyondTrust processes. Untested; tune process names.",
-          "query": "DeviceProcessEvents\n| where Timestamp > ago(60d)\n| where InitiatingProcessFileName has_any (\"bomgar\",\"beyondtrust\",\"sra-pin\",\"bgrs\")\n| where FileName in~ (\"cmd.exe\",\"powershell.exe\",\"pwsh.exe\",\"bash\",\"sh\",\"curl\",\"wget\")\n| project Timestamp, DeviceName, InitiatingProcessFileName, FileName, ProcessCommandLine"
-        }
-      ],
-      "iocs": [
-        {
-          "type": "actor",
-          "value": "Suspected China-nexus espionage group (per Mandiant, as relayed)",
-          "context": "Zero-day exploitation since late August 2026.",
-          "confidence": "low",
-          "source": "KLM Security Monitor 2026-10-16"
-        },
-        {
-          "type": "note",
-          "value": "No technical indicators published in sources reviewed.",
-          "context": "Provenance statement - filter before ingestion.",
-          "confidence": "high",
-          "source": "analyst note"
-        }
-      ],
-      "references": [
-        "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
-        "https://klminnovation.com/briefs/published/2026-10-16-KLM-security-monitor"
-      ]
-    },
-    {
       "rank": 10,
       "id": "TI-2026-10-21-005",
       "title": "Ivanti Connect Secure Chained Zero-Days (Auth Bypass + RCE + Root Privilege Escalation) Exploited by UTA0576 - Added to CISA KEV (CVE-2026-104935)",
       "cve_ids": [
-        "CVE-2026-104935"
+        "CVE-2026-104935",
+        "CVE-2026-111357",
+        "CVE-2026-118527"
       ],
       "vendor": "Ivanti",
       "affected_products": [
@@ -671,9 +673,9 @@
       "kev_due_date": "2026-10-16",
       "patch_available": "partial",
       "first_reported": "2026-10-13",
-      "last_updated": "2026-10-15",
+      "last_updated": "2026-11-03",
       "confidence": "medium",
-      "summary": "Volexity reports an actor it tracks as UTA0576 chained three Ivanti Connect Secure zero-days from 2026-10-03: an authentication bypass and RCE (tracked together as CVE-2026-104935) giving code execution as the cgi-server user, then a privilege escalation to root. Ivanti acknowledges 'limited exploitation in the wild'; CISA added CVE-2026-104935 to KEV on 2026-10-13 (federal due date reported as 2026-10-16). Fixes reported in 25.1.3.0/25.1.3.1/22.8R2.5 for two flaws; the third fix is reportedly still pending and no workaround is listed. Ivanti Connect Secure is widely deployed in UK government, NHS and corporate remote access and has a history of NCSC alerts (2024, 2025); no UK-specific victim was identified, but UK edge-VPN exposure makes this a priority hunt. Details come from search summaries (Hacker News/Forkast) and are unverified against Ivanti/CISA primary pages.",
+      "summary": "Volexity reports an actor it tracks as UTA0576 chained three Ivanti Connect Secure zero-days from 2026-10-03: an authentication bypass and RCE (tracked together as CVE-2026-104935) giving code execution as the cgi-server user, then a privilege escalation to root. Ivanti acknowledges 'limited exploitation in the wild'; CISA added CVE-2026-104935 to KEV on 2026-10-13 (federal due date reported as 2026-10-16). Fixes reported in 25.1.3.0/25.1.3.1/22.8R2.5 for two flaws; the third fix is reportedly still pending and no workaround is listed. Ivanti Connect Secure is widely deployed in UK government, NHS and corporate remote access and has a history of NCSC alerts (2024, 2025); no UK-specific victim was identified, but UK edge-VPN exposure makes this a priority hunt. Details come from search summaries (Hacker News/Forkast) and are unverified against Ivanti/CISA primary pages. UPDATE 3 Nov: follow-on CVEs CVE-2026-111357 (missing authentication for critical function / local root privilege escalation) and CVE-2026-118527 (predictable filenames in file processing) are reported as chain components; one secondary source says CISA added them to KEV on 30 Oct with federal deadlines of 2 Nov and 13 Nov, but another says only CVE-2026-104935 is in KEV - unverified. CVSS scores differ across sources (7.0-8.8). Affected: 25.1.1.2 and prior, 22.8R2.5 and prior.",
       "recommended_actions": [
         "Patch Connect Secure to the fixed builds immediately and apply any interim guidance for the unpatched third flaw.",
         "Run Ivanti's Integrity Checker Tool (noting past bypasses) and compare against known-good; if compromise suspected factory reset/rebuild and rotate all credentials and certificates.",
@@ -803,14 +805,6 @@
         "related_entry": "TI-2026-10-21-002",
         "related_cves": [],
         "confidence": "low"
-      },
-      {
-        "value": "Suspected China-nexus espionage group (per Mandiant, as relayed)",
-        "related_entry": "TI-2026-10-21-011",
-        "related_cves": [
-          "CVE-2026-102764"
-        ],
-        "confidence": "low"
       }
     ],
     "ttp": [
@@ -834,16 +828,22 @@
           "CVE-2026-97229"
         ],
         "confidence": "low"
+      },
+      {
+        "value": "AI-assisted vulnerability discovery and ransomware",
+        "related_entry": "TI-2026-11-03-001",
+        "related_cves": [],
+        "confidence": "medium"
       }
     ]
   },
   "summary_statistics": {
     "total_entries": 10,
-    "actively_exploited": 8,
-    "kev_listed": 6,
+    "actively_exploited": 7,
+    "kev_listed": 5,
     "no_patch_available": 2,
     "partial_patch_available": 4,
-    "total_cves_referenced": 10,
+    "total_cves_referenced": 11,
     "total_kql_queries": 15,
     "total_iocs": 25,
     "kev_deadlines_passed_or_due": [
