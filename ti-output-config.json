@@ -3,18 +3,18 @@
   "feed_id": "ti-daily-top10",
   "feed_name": "Daily Threat Intelligence Output - Top 10 Vulnerabilities and Cyber Incidents",
   "report": {
-    "check_performed_at": "2026-11-05T10:45:00Z",
-    "check_performed_at_local": "2026-11-05",
+    "check_performed_at": "2026-11-06T10:45:00Z",
+    "check_performed_at_local": "2026-11-06",
     "timezone": "UTC",
     "coverage_window": {
-      "start": "2026-11-04T10:45:00Z",
-      "end": "2026-11-05T10:45:00Z",
+      "start": "2026-11-05T10:45:00Z",
+      "end": "2026-11-06T10:45:00Z",
       "duration_hours": 24.0,
-      "note": "UK-focused run. New item: WordPress Core RCE CVE-2026-87902 (low confidence, UK exposure only). No new confirmed compromise of UK government systems. Bristol schools entry rotated out as oldest; other entries are carry-overs."
+      "note": "UK-focused run. New item: 3AM ransomware on UK school estate / Bristol schools leak (low confidence). No new confirmed compromise of UK government systems. Collabora CODE entry rotated out as oldest; others are carry-overs."
     },
     "entry_count": 10,
     "generated_by": "scheduled-claude-research",
-    "next_check_due": "2026-11-06T10:45:00Z"
+    "next_check_due": "2026-11-07T10:45:00Z"
   },
   "collection_metadata": {
     "collection_method": "open-source web search aggregation (search snippets only)",
@@ -46,7 +46,8 @@
       "2026-11-02 run: search-result summaries only; nothing new dated within the window was found, so entries are carry-overs and remain secondary-source and unverified. Search found no reports of confirmed compromise at UK councils from PHP2Shell (takedowns precautionary).",
       "2026-11-03 run: search-result summaries only (page fetches blocked by network policy); nothing UK-targeted newly confirmed in the window, so most entries are carry-overs. BeyondTrust CVE-2026-102764 entry rotated out as oldest. Ivanti KEV status for the follow-on CVEs conflicts between sources.",
       "2026-11-04 run: search-result summaries only; aljazeera.com fetch blocked by network policy. Refrigeration-attack vendor, CVEs and scale are unverified; Ivanti Connect Secure entry rotated out as oldest.",
-      "2026-11-05 run: search-result summaries only; WordPress CVE-2026-87902 date/details unverified; nothing UK-targeted newly confirmed in the window. Bristol schools entry rotated out as oldest."
+      "2026-11-05 run: search-result summaries only; WordPress CVE-2026-87902 date/details unverified; nothing UK-targeted newly confirmed in the window. Bristol schools entry rotated out as oldest.",
+      "2026-11-06 run: search-result summaries only; 3AM/Bristol schools details unverified; nothing else new dated within the window; Collabora entry rotated out as oldest."
     ],
     "confidence_legend": {
       "high": "Corroborated by the vendor advisory or by multiple independent reputable sources.",
@@ -323,6 +324,70 @@
       ]
     },
     {
+      "rank": 5,
+      "id": "TI-2026-11-06-001",
+      "title": "3AM Ransomware Affiliate Encrypts UK School Estate - Bitdefender Suspects AI-Assisted Intrusion; Bristol City Council Schools Data Leak Claimed by Wallstreet",
+      "cve_ids": [],
+      "vendor": "N/A",
+      "affected_products": [
+        "Windows endpoints/servers in UK school estate (unnamed)"
+      ],
+      "category": "incident",
+      "cvss_v3": null,
+      "severity": "high",
+      "exploitation_status": "exploited_in_the_wild",
+      "kev_listed": false,
+      "kev_due_date": null,
+      "patch_available": "no",
+      "first_reported": "2026-11-03",
+      "last_updated": "2026-11-06",
+      "confidence": "low",
+      "summary": "UK public sector (education/local authority). Bitdefender reporting (BleepingComputer, eSecurityPlanet, 3-4 Nov) says a 3AM ransomware affiliate encrypted about 37 of nearly 50 machines in an unnamed UK school estate between 10 and 19 Sept 2026; Bitdefender suspects parts of the intrusion were AI-assisted but evidence does not prove an AI model drove the attack. Separately, ITPro (4 Nov) reports at least 320,000 files tied to 39 schools published on a dark-web site after an attack on an education platform, and the Wallstreet group's 27 Oct claim naming Bristol City Council remains unattributed/unverified by the council. No new confirmed compromise of central UK government systems in the window. Details are from search-result summaries only and are unverified.",
+      "recommended_actions": [
+        "Review school/education estate segmentation, offline backups and EDR coverage",
+        "Hunt for 3AM-style tooling: shadow copy deletion, mass encryption, RMM/remote access abuse",
+        "Monitor leak sites for council/school data and warn affected parents/staff of phishing risk",
+        "Align with NCSC ransomware guidance and report incidents to NCSC/ICO"
+      ],
+      "kql": [
+        {
+          "platform": "defender_xdr",
+          "table": "DeviceProcessEvents",
+          "name": "Shadow copy deletion / recovery inhibition",
+          "description": "Untested hunting query for ransomware precursors.",
+          "query": "DeviceProcessEvents\n| where Timestamp > ago(7d)\n| where (FileName =~ \"vssadmin.exe\" and ProcessCommandLine has_any (\"delete shadows\",\"resize shadowstorage\")) or (FileName =~ \"wbadmin.exe\" and ProcessCommandLine has \"delete\") or (FileName =~ \"bcdedit.exe\" and ProcessCommandLine has_any (\"recoveryenabled no\",\"ignoreallfailures\"))\n| project Timestamp, DeviceName, AccountName, FileName, ProcessCommandLine"
+        },
+        {
+          "platform": "sentinel",
+          "table": "SecurityEvent",
+          "name": "Mass file rename burst on servers",
+          "description": "Untested; tune thresholds.",
+          "query": "DeviceFileEvents\n| where Timestamp > ago(1d) and ActionType == \"FileRenamed\"\n| summarize Renames=count() by DeviceName, InitiatingProcessFileName, bin(Timestamp,5m)\n| where Renames > 500"
+        }
+      ],
+      "iocs": [
+        {
+          "type": "ttp",
+          "value": "3AM ransomware affiliate; shadow copy deletion and mass encryption",
+          "context": "Behaviour reported by Bitdefender",
+          "confidence": "low",
+          "source": "BleepingComputer/Bitdefender"
+        },
+        {
+          "type": "actor",
+          "value": "Wallstreet ransomware group",
+          "context": "Claimed Bristol City Council on leak site 27 Oct; unverified",
+          "confidence": "low",
+          "source": "cypro.co.uk"
+        }
+      ],
+      "references": [
+        "https://www.bleepingcomputer.com/news/security/uk-school-estate-hit-by-3am-ransomware-in-suspected-ai-assisted-attack/",
+        "https://www.itpro.com/security/cyber-attacks/320-000-school-files-published-on-dark-web-after-attack-on-education-platform",
+        "https://cypro.co.uk/insights/cyber-bulletins/wallstreet-ransomware-claim-names-bristol-council/"
+      ]
+    },
+    {
       "id": "TI-2026-10-21-001",
       "title": "Legal Aid Agency (MoJ) Breach Scope Widened - Records Back to 1978 and HMPPS Probation Data Found in Stolen Set",
       "cve_ids": [],
@@ -375,10 +440,10 @@
         "https://cybersecuritynews.com/uk-legal-aid-agency-data-breach",
         "https://gbhackers.com/uk-legal-aid-cyberattack"
       ],
-      "rank": 5
+      "rank": 6
     },
     {
-      "rank": 6,
+      "rank": 7,
       "id": "TI-2026-10-28-001",
       "title": "HMICFRS Warns Hackers Have Repeatedly Compromised Suppliers Holding UK Police Data - Most Contracts Lack Ongoing Cyber Assurance",
       "cve_ids": [],
@@ -432,7 +497,7 @@
       ]
     },
     {
-      "rank": 7,
+      "rank": 8,
       "id": "TI-2026-10-21-002",
       "title": "Carry-over: 'FortiBleed' - Stolen Fortinet Firewall Credentials Include UK Government, Embassy, Council and NHS Accounts Offered for Sale",
       "cve_ids": [],
@@ -488,7 +553,7 @@
       ]
     },
     {
-      "rank": 8,
+      "rank": 9,
       "id": "TI-2026-10-21-004",
       "title": "Citrix NetScaler ADC/Gateway Zero-Days Under Active Exploitation - NCSC and NHS England Alerts; UK Follow-on SAML Flaw Pending (CVE-2026-88771, CVE-2026-88772, CVE-2026-107406)",
       "cve_ids": [
@@ -597,62 +662,6 @@
         "https://www.computerweekly.com/news/366651460/Cyber-authorities-issue-alert-over-exploitation-of-Citrix-vulns",
         "https://www.helpnetsecurity.com/?p=386203",
         "https://www.bleepingcomputer.com/news/security/citrix-admins-warned-to-shut-down-netscalers-over-2-exploited-zero-days/"
-      ]
-    },
-    {
-      "rank": 9,
-      "id": "TI-2026-10-24-001",
-      "title": "Collabora Online Built-in CODE Server OS Command Injection (CVE-2026-110447) Added to CISA KEV - Nextcloud Deployments at Risk",
-      "cve_ids": [
-        "CVE-2026-110447"
-      ],
-      "vendor": "Collabora / Nextcloud",
-      "affected_products": [
-        "Nextcloud richdocumentscode (built-in CODE server) before 26.4.303"
-      ],
-      "category": "vulnerability",
-      "cvss_v3": null,
-      "severity": "high",
-      "exploitation_status": "exploited_in_the_wild",
-      "kev_listed": true,
-      "kev_due_date": "2026-10-26",
-      "patch_available": "yes",
-      "first_reported": "2026-10-23",
-      "last_updated": "2026-10-24",
-      "confidence": "medium",
-      "summary": "CISA added CVE-2026-110447, an unauthenticated OS command injection in the Collabora Online built-in CODE server bundled with Nextcloud, to KEV on 23 Oct with a federal due date of 26 Oct. Exploitation allows arbitrary command execution, so web shells should be sought on unpatched hosts. Nextcloud is widely used for document collaboration by UK councils, universities and NHS suppliers, but no UK-specific compromise was reported. Details from search snippets and third-party reports; CISA page not retrieved.",
-      "recommended_actions": [
-        "Update richdocumentscode to 26.4.303 or later, or remove the built-in CODE server.",
-        "Inventory Nextcloud instances (including supplier-hosted) and restrict Collabora endpoints from the internet where possible.",
-        "Hunt for web shells and unexpected child processes from the web server or CODE server."
-      ],
-      "kql": [
-        {
-          "platform": "defender_xdr",
-          "table": "DeviceProcessEvents",
-          "name": "Collabora CODE server spawning shells",
-          "description": "Possible CVE-2026-110447 exploitation. Untested; tune.",
-          "query": "DeviceProcessEvents\n| where Timestamp > ago(7d)\n| where InitiatingProcessCommandLine has_any (\"coolwsd\",\"richdocumentscode\",\"collabora\")\n| where FileName in~ (\"sh\",\"bash\",\"dash\",\"curl\",\"wget\",\"nc\",\"python3\")\n| project Timestamp, DeviceName, FileName, ProcessCommandLine, InitiatingProcessCommandLine, AccountName"
-        }
-      ],
-      "iocs": [
-        {
-          "type": "filepath",
-          "value": "richdocumentscode (Nextcloud app, version < 26.4.303)",
-          "context": "Vulnerable component",
-          "confidence": "medium",
-          "source": "search-result summary"
-        },
-        {
-          "type": "note",
-          "value": "No network IOCs published in sources seen",
-          "context": "Provenance statement",
-          "confidence": "low"
-        }
-      ],
-      "references": [
-        "https://www.cisa.gov/news-events/alerts/2026/10/23/cisa-adds-one-known-exploited-vulnerability-catalog-0",
-        "https://windowsforum.com/news/cisa-kev-flags-cve-2026-110447-patch-nextcloud-built-in-collabora-code-command-injection.449798/"
       ]
     },
     {
@@ -843,12 +852,12 @@
   "summary_statistics": {
     "total_entries": 10,
     "actively_exploited": 7,
-    "kev_listed": 4,
+    "kev_listed": 3,
     "no_patch_available": 2,
     "partial_patch_available": 4,
     "total_cves_referenced": 9,
-    "total_kql_queries": 15,
-    "total_iocs": 14,
+    "total_kql_queries": 16,
+    "total_iocs": 24,
     "kev_deadlines_passed_or_due": [
       "2026-09-30",
       "2026-10-16",
