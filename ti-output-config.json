@@ -3,18 +3,18 @@
   "feed_id": "ti-daily-top10",
   "feed_name": "Daily Threat Intelligence Output - Top 10 Vulnerabilities and Cyber Incidents",
   "report": {
-    "check_performed_at": "2026-11-06T10:45:00Z",
-    "check_performed_at_local": "2026-11-06",
+    "check_performed_at": "2026-11-07T10:45:00Z",
+    "check_performed_at_local": "2026-11-07",
     "timezone": "UTC",
     "coverage_window": {
-      "start": "2026-11-05T10:45:00Z",
-      "end": "2026-11-06T10:45:00Z",
+      "start": "2026-11-06T10:45:00Z",
+      "end": "2026-11-07T10:45:00Z",
       "duration_hours": 24.0,
-      "note": "UK-focused run. New item: 3AM ransomware on UK school estate / Bristol schools leak (low confidence). No new confirmed compromise of UK government systems. Collabora CODE entry rotated out as oldest; others are carry-overs."
+      "note": "UK-focused run. New item: Royal Cornwall Hospitals NHS Trust board hearing on staff data breach (6 Nov; inadvertent disclosure, medium confidence). No new confirmed compromise of UK government systems found. CISA Cisco ASA/GitLab KEV entry rotated out as least UK-specific; others are carry-overs."
     },
     "entry_count": 10,
     "generated_by": "scheduled-claude-research",
-    "next_check_due": "2026-11-07T10:45:00Z"
+    "next_check_due": "2026-11-08T10:45:00Z"
   },
   "collection_metadata": {
     "collection_method": "open-source web search aggregation (search snippets only)",
@@ -47,7 +47,8 @@
       "2026-11-03 run: search-result summaries only (page fetches blocked by network policy); nothing UK-targeted newly confirmed in the window, so most entries are carry-overs. BeyondTrust CVE-2026-102764 entry rotated out as oldest. Ivanti KEV status for the follow-on CVEs conflicts between sources.",
       "2026-11-04 run: search-result summaries only; aljazeera.com fetch blocked by network policy. Refrigeration-attack vendor, CVEs and scale are unverified; Ivanti Connect Secure entry rotated out as oldest.",
       "2026-11-05 run: search-result summaries only; WordPress CVE-2026-87902 date/details unverified; nothing UK-targeted newly confirmed in the window. Bristol schools entry rotated out as oldest.",
-      "2026-11-06 run: search-result summaries only; 3AM/Bristol schools details unverified; nothing else new dated within the window; Collabora entry rotated out as oldest."
+      "2026-11-06 run: search-result summaries only; 3AM/Bristol schools details unverified; nothing else new dated within the window; Collabora entry rotated out as oldest.",
+      "2026-11-07 run: search-result summaries only; little new dated inside the window, so most entries are carry-overs and remain secondary-source and unverified."
     ],
     "confidence_legend": {
       "high": "Corroborated by the vendor advisory or by multiple independent reputable sources.",
@@ -388,6 +389,55 @@
       ]
     },
     {
+      "rank": 6,
+      "id": "TI-2026-11-07-001",
+      "title": "Royal Cornwall Hospitals NHS Trust Board Told Staff Data Breach Caused 'Significant Distress' - Investigation Finds Failings in Preparing and Publishing FOI Data",
+      "cve_ids": [],
+      "vendor": "N/A",
+      "affected_products": [
+        "Royal Cornwall Hospitals NHS Trust FOI disclosure process (editable spreadsheet)"
+      ],
+      "category": "incident",
+      "cvss_v3": null,
+      "severity": "medium",
+      "exploitation_status": "no_known_exploitation",
+      "kev_listed": false,
+      "kev_due_date": null,
+      "patch_available": "no",
+      "first_reported": "2025-12-10",
+      "last_updated": "2026-11-06",
+      "confidence": "medium",
+      "summary": "UK public sector (NHS). Reported 6 Nov 2026: a Royal Cornwall Hospitals NHS Trust board meeting heard that the data breach caused staff 'significant distress'; the trust's independent investigation found weaknesses in how data was prepared, checked, approved and published, and the chief executive and chief nursing officer apologised. Background (BBC and others, Dec 2025): a spreadsheet released in response to an FOI request retained hidden, editable data covering about 8,100 current and former staff (names, roles, grades/pay bands and sickness absence records) and was reported to the ICO. This is an inadvertent disclosure, not a malicious intrusion; no exploitation or threat actor involved. Relevant as a UK public-sector data-handling lesson and a possible ICO enforcement/phishing-lure risk. Details from search-result summaries only; unverified against primary sources.",
+      "recommended_actions": [
+        "Strip metadata, hidden sheets and pivot caches from files before FOI/public release; publish as PDF/CSV after review",
+        "Add second-person approval and automated DLP checks to disclosure workflows",
+        "Warn affected staff of targeted phishing/social-engineering risk",
+        "Confirm ICO notification and lessons-learned actions"
+      ],
+      "kql": [
+        {
+          "platform": "sentinel",
+          "table": "OfficeActivity",
+          "name": "Large spreadsheet shared externally or uploaded to public site",
+          "description": "Untested hunting query; tune to your tenant.",
+          "query": "OfficeActivity\n| where TimeGenerated > ago(7d)\n| where Operation in (\"SharingSet\",\"AnonymousLinkCreated\",\"SharingInvitationCreated\",\"FileUploaded\")\n| where SourceFileExtension in~ (\"xlsx\",\"xls\",\"xlsm\",\"csv\")\n| project TimeGenerated, UserId, Operation, OfficeWorkload, SourceFileName, SourceRelativeUrl, TargetUserOrGroupName"
+        }
+      ],
+      "iocs": [
+        {
+          "type": "behaviour",
+          "value": "Hidden/editable data (hidden sheets, pivot caches) in files released under FOI",
+          "context": "Root cause pattern reported for the Trust's disclosure",
+          "confidence": "medium",
+          "source": "BBC / local reporting"
+        }
+      ],
+      "references": [
+        "https://www.yahoo.com/news/world/articles/data-breach-caused-staff-significant-061346365.html",
+        "https://www.hellorayo.co.uk/hits-radio/cornwall/news/data-breach-at-royal-cornwall-hospitals-nhs-trust"
+      ]
+    },
+    {
       "id": "TI-2026-10-21-001",
       "title": "Legal Aid Agency (MoJ) Breach Scope Widened - Records Back to 1978 and HMPPS Probation Data Found in Stolen Set",
       "cve_ids": [],
@@ -440,10 +490,10 @@
         "https://cybersecuritynews.com/uk-legal-aid-agency-data-breach",
         "https://gbhackers.com/uk-legal-aid-cyberattack"
       ],
-      "rank": 6
+      "rank": 7
     },
     {
-      "rank": 7,
+      "rank": 8,
       "id": "TI-2026-10-28-001",
       "title": "HMICFRS Warns Hackers Have Repeatedly Compromised Suppliers Holding UK Police Data - Most Contracts Lack Ongoing Cyber Assurance",
       "cve_ids": [],
@@ -497,7 +547,7 @@
       ]
     },
     {
-      "rank": 8,
+      "rank": 9,
       "id": "TI-2026-10-21-002",
       "title": "Carry-over: 'FortiBleed' - Stolen Fortinet Firewall Credentials Include UK Government, Embassy, Council and NHS Accounts Offered for Sale",
       "cve_ids": [],
@@ -553,7 +603,7 @@
       ]
     },
     {
-      "rank": 9,
+      "rank": 10,
       "id": "TI-2026-10-21-004",
       "title": "Citrix NetScaler ADC/Gateway Zero-Days Under Active Exploitation - NCSC and NHS England Alerts; UK Follow-on SAML Flaw Pending (CVE-2026-88771, CVE-2026-88772, CVE-2026-107406)",
       "cve_ids": [
@@ -663,71 +713,6 @@
         "https://www.helpnetsecurity.com/?p=386203",
         "https://www.bleepingcomputer.com/news/security/citrix-admins-warned-to-shut-down-netscalers-over-2-exploited-zero-days/"
       ]
-    },
-    {
-      "rank": 10,
-      "id": "TI-2026-10-31-001",
-      "title": "CISA KEV Adds Cisco ASA/FTD SSL VPN DoS (CVE-2026-76418) and GitLab CVSS 10 RCE (CVE-2026-97229) - Edge/DevOps Exposure Relevant to UK Public Sector",
-      "cve_ids": [
-        "CVE-2026-76418",
-        "CVE-2026-97229"
-      ],
-      "vendor": "Cisco / GitLab",
-      "affected_products": [
-        "Cisco Secure Firewall ASA and FTD (SSL VPN)",
-        "GitLab (CI/CD configuration regex handling)"
-      ],
-      "category": "vulnerability_bundle",
-      "cvss_v3": 10.0,
-      "severity": "critical",
-      "exploitation_status": "exploited_in_the_wild",
-      "kev_listed": true,
-      "kev_due_date": "2026-11-01",
-      "patch_available": "yes",
-      "first_reported": "2026-10-29",
-      "last_updated": "2026-11-02",
-      "confidence": "low",
-      "summary": "Not UK-specific: no UK victim identified. Secondary reports (The Hacker News, Rescana) say CISA added two exploited flaws to KEV on 29 Oct: a Cisco ASA/FTD SSL VPN denial-of-service (CVE-2026-76418) with no vendor IoCs published, and a GitLab unauthenticated RCE (CVE-2026-97229, CVSS 10.0) via a crafted regex in CI/CD config, linked to a failed exploitation attempt disclosed by Alpine Linux. Federal due date 1 Nov. Both product families are common in UK government and corporate estates (VPN perimeter, source-code/CI platforms), so exposure is plausible. Dates conflict slightly between outlets and primary CISA/vendor pages were not retrieved. Context: UK window otherwise surfaced no new dated UK government incident; the NCSC PHP2Shell alert (rank 1) remains the main UK-relevant item. UPDATE 2 Nov: reporting indicates CISA KEV listing on 29 Oct with a federal remediation deadline of 1 Nov (now passed); Cisco has not published campaign-specific IoCs and no actor attribution is public. Sources differ on DoS vs wider compromise impact; rely on Cisco advisory cisco-sa-asaftd-tunnel-dos-s6mgkb75.",
-      "recommended_actions": [
-        "Patch GitLab and Cisco ASA/FTD to fixed releases per vendor advisories",
-        "Inventory internet-exposed GitLab instances and ASA/FTD SSL VPN endpoints",
-        "Review GitLab CI/CD configs and runner logs for anomalous regex-heavy or newly added pipeline definitions"
-      ],
-      "kql": [
-        {
-          "platform": "sentinel",
-          "table": "CommonSecurityLog",
-          "name": "Cisco ASA/FTD SSL VPN device reload or crash events",
-          "description": "Untested. Hunts for restarts/crash messages on Cisco firewalls consistent with DoS exploitation.",
-          "query": "CommonSecurityLog\n| where TimeGenerated > ago(7d)\n| where DeviceVendor =~ \"Cisco\"\n| where Message has_any (\"reload\", \"traceback\", \"crashinfo\", \"SSL VPN\")\n| summarize Events=count() by DeviceName, bin(TimeGenerated, 1h)\n| order by Events desc"
-        },
-        {
-          "platform": "defender_xdr",
-          "table": "DeviceNetworkEvents",
-          "name": "Outbound connections from GitLab hosts spawned by shell",
-          "description": "Untested. Finds shells on GitLab hosts making outbound connections.",
-          "query": "DeviceProcessEvents\n| where Timestamp > ago(7d)\n| where InitiatingProcessFileName in~ (\"gitlab-puma\",\"puma\",\"sidekiq\",\"gitlab-workhorse\")\n| where FileName in~ (\"sh\",\"bash\",\"curl\",\"wget\")\n| project Timestamp, DeviceName, InitiatingProcessFileName, FileName, ProcessCommandLine"
-        }
-      ],
-      "iocs": [
-        {
-          "type": "note",
-          "value": "No public IoCs",
-          "context": "Cisco, CISA and CCCS had published no indicators for CVE-2026-76418 as of 30 Oct; none retrieved for GitLab.",
-          "confidence": "low",
-          "source": "secondary reporting"
-        },
-        {
-          "type": "ttp",
-          "value": "GitLab CI/CD config regex abuse leading to unauthenticated RCE",
-          "context": "CVE-2026-97229 exploitation attempt reported by Alpine Linux",
-          "confidence": "low"
-        }
-      ],
-      "references": [
-        "https://thehackernews.com/2026/10/cisa-adds-actively-exploited-gitlab-rce.html",
-        "https://www.rescana.com/post/cisco-secure-firewall-asa-ftd-cve-2026-76418-ssl-ra-vpn-dos-kev"
-      ]
     }
   ],
   "ioc_index": {
@@ -824,14 +809,6 @@
         "confidence": "medium"
       },
       {
-        "value": "GitLab CI/CD config regex abuse leading to unauthenticated RCE",
-        "related_entry": "TI-2026-10-31-001",
-        "related_cves": [
-          "CVE-2026-97229"
-        ],
-        "confidence": "low"
-      },
-      {
         "value": "AI-assisted vulnerability discovery and ransomware",
         "related_entry": "TI-2026-11-03-001",
         "related_cves": [],
@@ -846,18 +823,24 @@
           "CVE-2026-87902"
         ],
         "confidence": "medium"
+      },
+      {
+        "value": "Hidden/editable data (hidden sheets, pivot caches) in files released under FOI",
+        "related_entry": "TI-2026-11-07-001",
+        "related_cves": [],
+        "confidence": "medium"
       }
     ]
   },
   "summary_statistics": {
     "total_entries": 10,
-    "actively_exploited": 7,
-    "kev_listed": 3,
+    "actively_exploited": 6,
+    "kev_listed": 2,
     "no_patch_available": 2,
     "partial_patch_available": 4,
-    "total_cves_referenced": 9,
-    "total_kql_queries": 16,
-    "total_iocs": 24,
+    "total_cves_referenced": 6,
+    "total_kql_queries": 15,
+    "total_iocs": 23,
     "kev_deadlines_passed_or_due": [
       "2026-09-30",
       "2026-10-16",
