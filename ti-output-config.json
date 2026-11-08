@@ -3,18 +3,18 @@
   "feed_id": "ti-daily-top10",
   "feed_name": "Daily Threat Intelligence Output - Top 10 Vulnerabilities and Cyber Incidents",
   "report": {
-    "check_performed_at": "2026-11-07T10:45:00Z",
-    "check_performed_at_local": "2026-11-07",
+    "check_performed_at": "2026-11-08T10:45:00Z",
+    "check_performed_at_local": "2026-11-08",
     "timezone": "UTC",
     "coverage_window": {
-      "start": "2026-11-06T10:45:00Z",
-      "end": "2026-11-07T10:45:00Z",
+      "start": "2026-11-07T10:45:00Z",
+      "end": "2026-11-08T10:45:00Z",
       "duration_hours": 24.0,
-      "note": "UK-focused run. New item: Royal Cornwall Hospitals NHS Trust board hearing on staff data breach (6 Nov; inadvertent disclosure, medium confidence). No new confirmed compromise of UK government systems found. CISA Cisco ASA/GitLab KEV entry rotated out as least UK-specific; others are carry-overs."
+      "note": "UK-focused run (Sunday). No new UK government or UK corporate incident first reported inside the window was found; all 10 entries are carry-overs. Most recent coverage found: Bristol City Council schools data leak (320,000 files, reported 4-5 Nov). Ranking unchanged."
     },
     "entry_count": 10,
     "generated_by": "scheduled-claude-research",
-    "next_check_due": "2026-11-08T10:45:00Z"
+    "next_check_due": "2026-11-09T10:45:00Z"
   },
   "collection_metadata": {
     "collection_method": "open-source web search aggregation (search snippets only)",
@@ -48,7 +48,8 @@
       "2026-11-04 run: search-result summaries only; aljazeera.com fetch blocked by network policy. Refrigeration-attack vendor, CVEs and scale are unverified; Ivanti Connect Secure entry rotated out as oldest.",
       "2026-11-05 run: search-result summaries only; WordPress CVE-2026-87902 date/details unverified; nothing UK-targeted newly confirmed in the window. Bristol schools entry rotated out as oldest.",
       "2026-11-06 run: search-result summaries only; 3AM/Bristol schools details unverified; nothing else new dated within the window; Collabora entry rotated out as oldest.",
-      "2026-11-07 run: search-result summaries only; little new dated inside the window, so most entries are carry-overs and remain secondary-source and unverified."
+      "2026-11-07 run: search-result summaries only; little new dated inside the window, so most entries are carry-overs and remain secondary-source and unverified.",
+      "2026-11-08 run: search-result summaries only; searches surfaced nothing new dated within the window (weekend), so entries are carry-overs and remain secondary-source and unverified."
     ],
     "confidence_legend": {
       "high": "Corroborated by the vendor advisory or by multiple independent reputable sources.",
