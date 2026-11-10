@@ -72,11 +72,28 @@ not allow-list a whole account or an entire interpreter.
    actually triage.
 3. Create the Scheduled Analytics Rule. Suggested cadence:
 
-| Analytic | Query frequency | Lookup period | Notes |
+| Analytic | Query frequency | Lookup period | In-file `lookback` to set |
 |---|---|---|---|
-| A1, A2, A3, A5 | 1 h | 1 h | Reduce `lookback` in the file to match the lookup period |
-| A4 | 15 min | 1 h | Credential access warrants a tighter loop |
-| A6 | 1 h | 4 h | Needs ≥ `burstWindow` + `successWindow` of overlap |
+| A1, A2, A5 | 1 h | 1 h | `1h` (ships as 7d for hunting) |
+| A3 | 1 h | 1 h | `1h` (ships as 14d for hunting) |
+| A4 | 15 min | 1 h | `1h` (ships as 14d for hunting) |
+| A6 | 1 h | **30 d** | `3d`, and see the baseline note below |
+
+**Every file ships with a hunting-width `lookback` (3–14 days). You must reduce
+it to the rule's lookup period before scheduling it**, or each run re-evaluates
+the whole window and every historical hit re-alerts on every run — at A4's
+15-minute cadence that is 96 duplicate alerts a day, and the rule gets muted
+within a day.
+
+**A6's baseline needs the long lookup period.** A Sentinel scheduled rule
+constrains the entire query to its configured lookup period, which clips A6's
+30-day `KnownAsns` / `KnownCountries` baseline to nothing. With an empty
+baseline the `UnfamiliarAsn` and `UnfamiliarCountry` signals can never fire. Two
+supported options: set the rule's lookup period to 30 days (expensive on a busy
+tenant), or maintain the baseline in a Sentinel summary rule or watchlist and
+join against that instead. Either way the query emits `BaselineAvailable` and a
+`BaselineUnavailable-CheckRuleLookupPeriod` signal, so a clipped baseline shows
+up in the alert rather than silently downgrading every hit.
 
 4. Set entity mappings so incidents correlate:
    - Host → `DeviceName`, Host `HostID` → `DeviceId`
@@ -88,6 +105,25 @@ not allow-list a whole account or an entire interpreter.
    one rule per severity tier if your SOC routes High and Medium differently.
 6. Enable incident grouping on the Host or Account entity over 5 h — these
    techniques chain, and you want one incident for the intrusion, not six.
+
+## Validation status
+
+These queries have been reviewed for schema and KQL-semantic correctness but
+**not executed against a live tenant** — there was no Defender or Sentinel
+workspace available when they were authored. Run each one interactively over
+its shipped `lookback` and check the hit volume before promoting any of them to
+a scheduled rule.
+
+Two KQL semantics worth knowing before you edit them:
+
+- **`has` / `has_any` match whole indexed terms, not substrings.** Indicators
+  that depend on punctuation — `` ` ``, `${`, `[char]`, `'+'`, `https://`,
+  `/qn` — must use `contains` or `matches regex`. Several signals in A1, A2 and
+  A5 are written that way on purpose; "simplifying" them back to `has_any`
+  stops them matching.
+- **`in` wants a constant list or a tabular expression, not a per-row dynamic
+  column.** Membership against a `make_set()` column uses
+  `set_has_element()` (see A6).
 
 ## Deliberate omissions
 

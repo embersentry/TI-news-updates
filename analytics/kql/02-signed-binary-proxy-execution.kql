@@ -46,26 +46,40 @@ DeviceProcessEvents
       // Scriptlet / COM scriptlet registration (regsvr32 "squiblydoo").
       iff(cmd has_all ("/i:", "scrobj.dll") or cmd has_all ("-i:", "scrobj.dll"), "Squiblydoo", ""),
       // msiexec installing straight from the internet or quiet-installing.
-      iff(FileName =~ "msiexec.exe" and cmd has_any ("http", "/q") and cmd has_any ("http", "\\temp\\", "\\appdata\\"), "RemoteOrSilentMsi", ""),
+      // `contains` not `has_any`: term matching tokenizes "https://host" as
+      // the term "https", so has_any("http") misses every HTTPS URL, and the
+      // term "q" misses /qn and /quiet.
+      iff(FileName =~ "msiexec.exe"
+          and (cmd contains "http" or cmd contains "\\\\")
+          and (cmd contains "/q" or cmd contains "-q" or cmd contains "\\temp\\" or cmd contains "\\appdata\\"), "RemoteOrSilentMsi", ""),
       // DLL with no extension or an odd one - evades extension-based rules.
       iff(FileName =~ "rundll32.exe" and cmd matches regex @"rundll32(\.exe)?[\s""']+[^,\s]+\.(txt|log|dat|tmp|jpg|png|ini|bin|xml)\s*,", "DllWithOddExtension", "")
   ), dynamic([""]))
 | extend ParentIsOffice     = InitiatingProcessFileName in~ (officeParents)
 | extend ParentIsScriptHost = InitiatingProcessFileName in~ (scriptHosts)
 | extend ParentIsBrowserOrArchive = InitiatingProcessFileName in~ (archiveParents)
-// rundll32 with no arguments at all is a classic injection host.
+// rundll32 with no arguments at all is a classic injection host. Isolate the
+// ARGUMENTS first - ProcessCommandLine includes the image path, so testing the
+// whole string for a backslash discards the full-path invocation
+// ("C:\Windows\system32\rundll32.exe" with no args) that this signal exists
+// to catch.
+| extend RundllArgs = trim(@"[\s""']+",
+      extract(@"rundll32(?:\.exe)?""?(.*)$", 1, cmd))
 | extend EmptyArgs = FileName =~ "rundll32.exe"
       and isnotempty(ProcessCommandLine)
-      and not(cmd has ",")
-      and not(cmd has_any ("http", "\\"))
+      and isempty(RundllArgs)
 | extend SignalCount = array_length(Signals)
 | where SignalCount >= 1 or ParentIsOffice or ParentIsScriptHost or EmptyArgs
 | extend Severity = case(
-      ParentIsOffice or Signals has_any ("Squiblydoo", "KnownAbusedExport"), "High",
+      // set_has_element, not has_any: Signals is a per-row dynamic array, and
+      // string operators against it rely on undefined stringification.
+      ParentIsOffice
+          or set_has_element(Signals, "Squiblydoo")
+          or set_has_element(Signals, "KnownAbusedExport"), "High",
       SignalCount >= 2 or ParentIsScriptHost or ParentIsBrowserOrArchive, "High",
       SignalCount == 1 or EmptyArgs, "Medium",
       "Low")
-| project Timestamp, Severity, Technique, Signals, EmptyArgs,
+| project Timestamp, Severity, Technique, Signals, EmptyArgs, RundllArgs,
           ParentIsOffice, ParentIsScriptHost,
           DeviceName, AccountDomain, AccountName,
           FileName, ProcessCommandLine, FolderPath,

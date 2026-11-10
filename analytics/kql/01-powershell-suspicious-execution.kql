@@ -10,24 +10,47 @@
 //         chain and ransomware precursor touches it.
 // Model:  multi-signal scoring. One signal alone is noisy in any real estate;
 //         two or more co-occurring signals is the detection.
+// Note:   `has`/`has_any` match whole indexed TERMS, not substrings, so any
+//         indicator that depends on punctuation ([char], ${, backtick, '+')
+//         uses `contains` or `matches regex` instead. Do not "simplify" these
+//         back to has_any - the signal silently stops matching.
 // ============================================================================
 let lookback = 7d;
 // Interpreters, matched on the PE metadata too so renamed copies still hit.
 let psImages = dynamic(["powershell.exe", "pwsh.exe", "powershell_ise.exe"]);
-let psOriginalNames = dynamic(["PowerShell.EXE", "pwsh.dll", "PowerShell_ISE.EXE"]);
+let psOriginalNames = dynamic(["powershell.exe", "pwsh.dll", "powershell_ise.exe"]);
 DeviceProcessEvents
 | where Timestamp > ago(lookback)
-| where FileName has_any (psImages)
-    or ProcessVersionInfoOriginalFileName in~ (psOriginalNames)
+| where FileName in~ (psImages)
+    or tolower(ProcessVersionInfoOriginalFileName) in (psOriginalNames)
 | extend cmd = tolower(ProcessCommandLine)
 | extend Signals = set_difference(pack_array(
-      iff(cmd has_any ("-enc", "-ec ", "-e ", "encodedcommand", "frombase64string", "::frombase64"), "EncodedOrBase64", ""),
-      iff(cmd has_any ("downloadstring", "downloadfile", "downloaddata", "invoke-webrequest", "iwr ", "invoke-restmethod", "start-bitstransfer", "net.webclient", "curl ", "wget "), "RemoteDownload", ""),
-      iff(cmd has_any ("-w hidden", "-windowstyle hidden", "-nop", "-noprofile", "-noni", "-noninteractive", "-ep bypass", "-executionpolicy bypass", "-exec bypass"), "StealthFlags", ""),
-      iff(cmd has_any ("iex", "invoke-expression", "invoke-command", "&('", ".invoke(", "scriptblock::create"), "DynamicExecution", ""),
-      iff(cmd has_any ("[char]", "-join", "-replace", "`", "${", "char[]", "'+'", "\"+\""), "ObfuscationArtifacts", ""),
-      iff(cmd has_any ("virtualalloc", "createremotethread", "memorystream", "deflatestream", "reflection.assembly", "unsafe", "marshal::"), "InMemoryOrInjection", ""),
-      iff(cmd has_any ("-command -", "- | iex", "cat ", "get-content") and cmd has "iex", "StdinPipe", ""),
+      // -enc / -ec / -e followed by a long base64 blob. Anchored on the blob
+      // so that "-File e:\build.ps1" cannot match the bare term "e".
+      iff(cmd matches regex @"\s[-/]e(c|nc|ncodedcommand)?\s+[a-z0-9+/=]{24,}"
+          or cmd contains "frombase64string"
+          or cmd contains "::frombase64", "EncodedOrBase64", ""),
+      iff(cmd has_any ("downloadstring", "downloadfile", "downloaddata",
+            "invoke-webrequest", "iwr", "invoke-restmethod", "start-bitstransfer",
+            "net.webclient", "curl", "wget", "restmethod"), "RemoteDownload", ""),
+      iff(cmd has_any ("hidden", "noprofile", "noninteractive", "bypass")
+          or cmd matches regex @"\s-(w|nop|noni|ep|exec)\s", "StealthFlags", ""),
+      iff(cmd has_any ("iex", "invoke-expression", "invoke-command")
+          or cmd contains "&('"
+          or cmd contains ".invoke("
+          or cmd contains "scriptblock::create", "DynamicExecution", ""),
+      // Obfuscation that is structural rather than lexical. These are all
+      // punctuation-bearing, hence contains / regex.
+      iff(cmd contains "[char]"
+          or cmd contains "char[]"
+          or cmd contains "${"
+          or cmd contains "-bxor"
+          or cmd matches regex @"`\w"
+          or cmd matches regex @"'\s*\+\s*'"
+          or cmd matches regex @"""\s*\+\s*""", "ObfuscationArtifacts", ""),
+      iff(cmd has_any ("virtualalloc", "createremotethread", "memorystream",
+            "deflatestream", "unsafe") or cmd contains "reflection.assembly"
+          or cmd contains "marshal::", "InMemoryOrInjection", ""),
       iff(strlen(ProcessCommandLine) > 1200, "VeryLongCommandLine", "")
   ), dynamic([""]))
 | extend SignalCount = array_length(Signals)
@@ -37,12 +60,16 @@ DeviceProcessEvents
       "winword.exe", "excel.exe", "powerpnt.exe", "outlook.exe", "msaccess.exe",
       "visio.exe", "mshta.exe", "wscript.exe", "cscript.exe", "rundll32.exe",
       "regsvr32.exe", "msiexec.exe", "wmiprvse.exe", "w3wp.exe", "httpd.exe",
-      "sqlservr.exe", "explorer.exe", "7zfm.exe", "winrar.exe", "acrord32.exe")
+      "sqlservr.exe", "7zfm.exe", "winrar.exe", "acrord32.exe")
 | where SignalCount >= 2 or (SignalCount >= 1 and SuspiciousParent)
 | extend Severity = case(
-      SignalCount >= 4 or (SignalCount >= 2 and SuspiciousParent), "High",
-      SignalCount == 3, "Medium",
+      SignalCount >= 4, "High",
+      SignalCount >= 2 and SuspiciousParent, "High",
+      SignalCount == 3, "High",
+      SignalCount == 2, "Medium",
+      SignalCount == 1 and SuspiciousParent, "Medium",
       "Low")
+| where Severity != "Low"
 | project Timestamp, Severity, SignalCount, Signals, SuspiciousParent,
           DeviceName, AccountDomain, AccountName, FileName,
           ProcessCommandLine, InitiatingProcessFileName,
@@ -55,3 +82,5 @@ DeviceProcessEvents
 // shape*, never on the signal itself:
 //   | where not(InitiatingProcessFileName =~ "ccmexec.exe" and cmd has "ccmsetup")
 //   | where AccountName !in~ ("svc_sccm", "svc_backup")
+// explorer.exe was deliberately removed from SuspiciousParent: a user running
+// PowerShell from the shell is normal, and it dominated the parent signal.

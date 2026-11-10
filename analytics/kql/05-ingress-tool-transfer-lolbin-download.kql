@@ -17,7 +17,9 @@ let downloadUtilities = dynamic([
       "finger.exe", "ftp.exe", "hh.exe", "ieexec.exe", "mshta.exe",
       "msiexec.exe", "expand.exe", "replace.exe", "extrac32.exe",
       "desktopimgdownldr.exe", "makecab.exe", "print.exe", "winget.exe",
-      "advpack.dll", "powershell.exe", "pwsh.exe", "wscript.exe", "cscript.exe"]);
+      "powershell.exe", "pwsh.exe", "wscript.exe", "cscript.exe"]);
+// (advpack.dll / ieadvpack.dll downloads are rundll32-hosted, so they surface
+//  in A2, not here - a DLL never appears as DeviceProcessEvents.FileName.)
 let Downloads =
     DeviceProcessEvents
     | where Timestamp > ago(lookback)
@@ -28,9 +30,10 @@ let Downloads =
     | extend UncSource = extract(@"(\\\\[a-zA-Z0-9\.\-_]+\\[^\s""']+)", 1, ProcessCommandLine)
     | where isnotempty(RemoteSource) or isnotempty(UncSource)
     | extend Method = case(
-          FileName =~ "certutil.exe"   and cmd has_any ("urlcache", "verifyctl", "-f ", "/f "), "certutil urlcache",
+          FileName =~ "certutil.exe"   and cmd has_any ("urlcache", "verifyctl", "split"), "certutil urlcache",
           FileName =~ "bitsadmin.exe"  and cmd has_any ("/transfer", "/addfile", "/create"), "bitsadmin transfer",
-          FileName in~ ("curl.exe", "wget.exe") and cmd has_any (" -o", " --output", " -O"), "curl/wget to file",
+          FileName in~ ("curl.exe", "wget.exe")
+              and (cmd contains " -o" or cmd contains "--output"), "curl/wget to file",
           FileName =~ "esentutl.exe"   and cmd has "/y", "esentutl copy",
           FileName in~ ("expand.exe", "extrac32.exe", "replace.exe", "makecab.exe", "print.exe"), "copy-utility over UNC/HTTP",
           FileName =~ "desktopimgdownldr.exe", "desktopimgdownldr",
@@ -66,17 +69,20 @@ let Egress =
     | where Timestamp > ago(lookback)
     | where ActionType in ("ConnectionSuccess", "ConnectionRequest", "InboundConnectionAccepted", "ConnectionFound")
     | where isnotempty(RemoteIP)
-    | where ipv4_is_private(RemoteIP) != true or isnotempty(RemoteUrl)
+    | where not(ipv4_is_private(RemoteIP) == true) or isnotempty(RemoteUrl)
     | project NetTime = Timestamp, DeviceId, InitiatingProcessId,
               RemoteIP, RemotePort, RemoteUrl;
 Downloads
 | join kind=leftouter (Egress) on DeviceId, $left.ProcessId == $right.InitiatingProcessId
-| where isnull(NetTime)
-    or (NetTime between (Timestamp .. (Timestamp + correlationWindow)))
-| summarize ObservedConnections = dcountif(strcat(RemoteIP, ":", RemotePort), isnotempty(RemoteIP)),
-            RemoteIPs   = make_set_if(RemoteIP, isnotempty(RemoteIP), 10),
-            RemotePorts = make_set_if(RemotePort, isnotempty(RemoteIP), 10),
-            RemoteUrls  = make_set_if(RemoteUrl, isnotempty(RemoteUrl), 10)
+// Do NOT filter on the window here. A download whose process connected only
+// OUTSIDE the window would have every joined row discarded, dropping the
+// detection entirely rather than reporting it as unconfirmed.
+| extend InWindow = isnotnull(NetTime)
+      and NetTime between (Timestamp .. (Timestamp + correlationWindow))
+| summarize ObservedConnections = dcountif(strcat(RemoteIP, ":", RemotePort), InWindow),
+            RemoteIPs   = make_set_if(RemoteIP, InWindow, 10),
+            RemotePorts = make_set_if(RemotePort, InWindow, 10),
+            RemoteUrls  = make_set_if(RemoteUrl, InWindow and isnotempty(RemoteUrl), 10)
     by Timestamp, DeviceId, DeviceName, AccountDomain, AccountName, FileName,
        ProcessCommandLine, FolderPath, Method, RemoteSource, UncSource,
        RemoteHost, RawIpUrl, SuspiciousHost, WritesToUserWritable,
@@ -84,10 +90,10 @@ Downloads
        InitiatingProcessCommandLine, ProcessId, InitiatingProcessId, ReportId
 | extend ConnectionConfirmed = ObservedConnections > 0
 | extend Severity = case(
-      ConnectionConfirmed and PayloadIsExecutable and (WritesToUserWritable or RawIpUrl or SuspiciousHost), "High",
-      ConnectionConfirmed and (PayloadIsExecutable or WritesToUserWritable), "High",
-      PayloadIsExecutable and WritesToUserWritable, "Medium",
-      ConnectionConfirmed, "Medium",
+      ConnectionConfirmed and PayloadIsExecutable, "High",
+      ConnectionConfirmed and (WritesToUserWritable or RawIpUrl or SuspiciousHost), "High",
+      PayloadIsExecutable and (WritesToUserWritable or RawIpUrl or SuspiciousHost), "Medium",
+      ConnectionConfirmed or (PayloadIsExecutable and WritesToUserWritable), "Medium",
       "Low")
 | where Severity != "Low"
 | project Timestamp, Severity, Method, ConnectionConfirmed, ObservedConnections,

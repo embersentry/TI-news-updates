@@ -1,5 +1,5 @@
 // ============================================================================
-// A3 - Masquerading: renamed or relocated system binaries
+// A3 - Masquerading: renamed, relocated or staged system binaries
 // ATT&CK: T1036.003 (Rename System Utilities), T1036.005 (Match Legitimate
 //         Name or Location), T1218 (proxy execution follow-on)
 // Tables: DeviceProcessEvents
@@ -10,7 +10,7 @@
 //         binary: either an attacker renamed the tool, or a vendor repacked it.
 // ============================================================================
 let lookback = 14d;
-// Native tools attackers habitually copy and rename.
+// Native and third-party tools attackers habitually copy, rename or stage.
 let watchedOriginalNames = dynamic([
       "powershell.exe", "pwsh.dll", "cmd.exe", "wscript.exe", "cscript.exe",
       "rundll32.exe", "regsvr32.exe", "mshta.exe", "certutil.exe",
@@ -18,14 +18,29 @@ let watchedOriginalNames = dynamic([
       "net.exe", "net1.exe", "nltest.exe", "whoami.exe", "systeminfo.exe",
       "reg.exe", "schtasks.exe", "sc.exe", "tasklist.exe", "taskkill.exe",
       "ntdsutil.exe", "vssadmin.exe", "wbadmin.exe", "bcdedit.exe",
-      "procdump.exe", "procdump64.exe", "adexplorer.exe", "adfind.exe",
+      "procdump.exe", "adexplorer.exe", "adfind.exe",
       "curl.exe", "ssh.exe", "plink.exe", "psftp.exe", "winscp.exe",
       "7z.exe", "rar.exe", "msiexec.exe", "installutil.exe",
       "mavinject.exe", "esentutl.exe", "makecab.exe", "expand.exe"]);
+// Known-good "on-disk name != PE original name" pairs. Without these, every
+// legitimate run of the 64-bit Sysinternals builds (which ship with the 32-bit
+// original name in their PE header) is reported as a renamed utility.
+let benignNamePairs = dynamic([
+      "pwsh.exe|pwsh.dll",
+      "procdump64.exe|procdump.exe",
+      "procdump64a.exe|procdump.exe",
+      "psexec64.exe|psexec.exe",
+      "adexplorer64.exe|adexplorer.exe",
+      "net1.exe|net.exe",
+      "curl.exe|curl",
+      "7z.exe|7z.exe"]);
 let systemDirs = dynamic(["c:\\windows\\system32\\", "c:\\windows\\syswow64\\",
       "c:\\windows\\winsxs\\", "c:\\windows\\servicing\\",
       "c:\\program files\\powershell\\", "c:\\windows\\system32\\windowspowershell\\",
       "c:\\windows\\syswow64\\windowspowershell\\"]);
+let userWritablePaths = dynamic(["\\appdata\\", "\\temp\\", "\\users\\public\\",
+      "\\programdata\\", "\\downloads\\", "\\perflogs\\", "\\$recycle.bin\\",
+      "\\windows\\tasks\\", "\\music\\", "\\pictures\\"]);
 DeviceProcessEvents
 | where Timestamp > ago(lookback)
 | where isnotempty(ProcessVersionInfoOriginalFileName)
@@ -35,36 +50,46 @@ DeviceProcessEvents
 | extend company  = tolower(ProcessVersionInfoCompanyName)
 | where original in (watchedOriginalNames)
 | extend NameMismatch = onDisk != original
-      // powershell.exe ships with an original name of "PowerShell.EXE"; pwsh
-      // ships as pwsh.dll. Normalise those two known-good pairs.
-      and not(onDisk == "pwsh.exe" and original == "pwsh.dll")
-| extend OutsideSystemDir = not(path startswith_cs "c:\\windows\\system32\\")
+      and strcat(onDisk, "|", original) !in (benignNamePairs)
+| extend IsMicrosoftOrSysinternals = company has_any ("microsoft", "sysinternals")
+// Branch 2 only applies to binaries that are *supposed* to live in System32,
+// so it is gated on the Microsoft/Sysinternals publisher.
+| extend OutsideSystemDir = IsMicrosoftOrSysinternals
       and not(path has_any (systemDirs))
-      and company has_any ("microsoft", "sysinternals")
-| where NameMismatch or OutsideSystemDir
+// Branch 3 applies to EVERY watched tool, Microsoft-published or not, so that
+// a third-party tool staged under a user-writable path (adfind.exe in
+// C:\Users\Public, plink.exe in %TEMP%) is still caught even unrenamed.
+| extend StagedInUserWritable = path has_any (userWritablePaths)
+| where NameMismatch or OutsideSystemDir or StagedInUserWritable
 | extend Technique = case(
-      NameMismatch and OutsideSystemDir, "T1036.003 + T1036.005",
+      NameMismatch and (OutsideSystemDir or StagedInUserWritable), "T1036.003 + T1036.005",
       NameMismatch, "T1036.003 Rename System Utilities",
       "T1036.005 Match Legitimate Name or Location")
 | extend Severity = case(
-      NameMismatch and path has_any ("\\appdata\\", "\\temp\\", "\\users\\public\\",
-            "\\programdata\\", "\\downloads\\", "\\perflogs\\", "\\$recycle.bin\\"), "High",
+      NameMismatch and StagedInUserWritable, "High",
       NameMismatch, "High",
-      path has_any ("\\appdata\\", "\\temp\\", "\\users\\public\\", "\\programdata\\"), "Medium",
+      StagedInUserWritable, "Medium",
+      OutsideSystemDir, "Medium",
       "Low")
-// Unsigned copies of Microsoft-branded tools are the strongest variant.
-| extend SignatureConcern = iff(isempty(ProcessVersionInfoProductName), "NoProductName", "")
-| project Timestamp, Severity, Technique,
+| extend SeverityRank = case(Severity == "High", 1, Severity == "Medium", 2, 3)
+// DeviceProcessEvents carries no signer column; a missing ProductName on a
+// binary claiming Microsoft provenance is the closest available proxy.
+| extend MetadataConcern = iff(isempty(ProcessVersionInfoProductName), "NoProductName", "")
+| project Timestamp, Severity, SeverityRank, Technique,
           OnDiskName = FileName, OriginalName = ProcessVersionInfoOriginalFileName,
-          FolderPath, SignatureConcern,
+          FolderPath, NameMismatch, OutsideSystemDir, StagedInUserWritable,
+          MetadataConcern,
           ProcessVersionInfoCompanyName, ProcessVersionInfoProductName,
           DeviceName, AccountDomain, AccountName,
           ProcessCommandLine, SHA256,
           InitiatingProcessFileName, InitiatingProcessCommandLine,
           ProcessId, InitiatingProcessId, ReportId, DeviceId
-| order by Severity asc, Timestamp desc
+| order by SeverityRank asc, Timestamp desc
 // --- Tuning -----------------------------------------------------------------
 // Real-world benign causes: vendor-bundled curl/7z/ssh copies, Git for Windows,
-// cloud agent payloads, and software that ships a renamed PsExec. Baseline by
-// SHA256 + FolderPath, which survives a rename:
+// cloud agent payloads, software that ships a renamed PsExec, and anything
+// installed under C:\ProgramData. StagedInUserWritable is the noisiest branch -
+// baseline it first. Exclude by SHA256 + FolderPath, which survives a rename:
 //   | where SHA256 !in (_GetWatchlist('ApprovedRepackagedTools') | project SearchKey)
+// If you find another legitimate name/original pair, add it to benignNamePairs
+// rather than dropping the tool from watchedOriginalNames.

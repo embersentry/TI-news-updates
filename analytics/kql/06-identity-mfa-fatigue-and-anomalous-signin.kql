@@ -4,55 +4,72 @@
 //         T1110.003 (Password Spraying), T1078.004 (Valid Accounts: Cloud),
 //         T1556.006 (Modify Authentication Process: MFA)
 // Tables: SigninLogs (Sentinel, Entra ID connector)
-//         Optional: AADNonInteractiveUserSignInLogs, AuditLogs
 //         Defender-XDR-only equivalent noted at the bottom.
 // Why:    Identity is now the dominant initial-access surface in Red Canary's
 //         reporting - MFA push bombing, AiTM phishing and "valid accounts"
 //         abuse outrank most endpoint-side initial access. The detection that
 //         matters is not a failure burst on its own, it is a failure burst
 //         that ends in a success.
+//
+// IMPORTANT - two schema/deployment facts this query depends on:
+//   1. SigninLogs.ResultType is a STRING ("0", "500121"), not an int. It is
+//      converted with toint() below. Comparing it directly to a numeric
+//      literal either fails to compile or silently matches nothing.
+//   2. A Sentinel scheduled rule constrains the whole query to its configured
+//      lookup period, which CLIPS the 30-day baseline below. Either set the
+//      rule's lookup period to >= baselineWindow, or replace the baseline with
+//      a Sentinel summary rule / watchlist. BaselineAvailable is emitted so a
+//      silently-empty baseline is visible instead of just downgrading hits.
 // ============================================================================
-let lookback = 3d;
-let burstWindow = 30m;         // window over which denials are counted
-let successWindow = 1h;        // how long after the burst a success still counts
-let minDenials = 5;            // tune to your estate; 5-10 is typical
-// Entra ID result codes that mean "the user was challenged and it did not pass"
+let lookback = 3d;            // detection window
+let baselineWindow = 30d;     // see note 2 above
+let burstWindow = 30m;        // how far back from a success denials are counted
+let minDenials = 5;           // tune to your estate; 5-10 is typical
+// Codes that mean the authentication attempt actually FAILED. Deliberately
+// excluded: 50074 / 50076 / 50072 / 50079 / 53003 ("MFA required", enrolment
+// interrupts, CA interrupts). Those are issued during the normal interactive
+// MFA flow, so including them makes "interrupt then success" - i.e. every
+// ordinary morning login - match the pattern this rule alerts on.
 let mfaDenialCodes = dynamic([
-      50074,   // strong auth required, user did not satisfy
-      50076,   // MFA required (session), re-auth needed
-      50079,   // user must enrol in MFA
       500121,  // auth failed during strong auth request (denied / timed out)
-      50072,   // user must enrol in MFA (interrupt)
-      50097,   // device authentication required
       50158,   // external security challenge not satisfied
-      53003,   // blocked by Conditional Access
-      53004    // user must enrol in MFA to access
+      50125,   // sign-in interrupted by password reset / registration
+      50133    // session invalid, credential expired or revoked
   ]);
-let Denials =
+// Credential-guessing failures, counted alongside push denials so the analytic
+// also covers spray-then-success (T1110.003).
+let credFailureCodes = dynamic([
+      50126,   // invalid username or password
+      50053,   // account locked / smart lockout
+      50056    // invalid or null password
+  ]);
+let Failures =
     SigninLogs
     | where TimeGenerated > ago(lookback)
-    | where ResultType in (mfaDenialCodes)
-    | extend Ip = tostring(IPAddress)
-    | extend Country = tostring(LocationDetails.countryOrRegion)
-    | extend City = tostring(LocationDetails.city)
-    | summarize DenialCount      = count(),
-                FirstDenial      = min(TimeGenerated),
-                LastDenial       = max(TimeGenerated),
-                DenialIPs        = make_set(Ip, 20),
-                DenialCountries  = make_set(Country, 10),
-                DenialAsns       = make_set(AutonomousSystemNumber, 10),
-                DenialApps       = make_set(AppDisplayName, 10),
-                DenialCodes      = make_set(ResultType, 10),
-                DistinctIPs      = dcount(Ip)
-        by UserPrincipalName, UserId, bin(TimeGenerated, burstWindow)
-    | where DenialCount >= minDenials;
+    | extend ResultCode = toint(ResultType)
+    | where ResultCode in (mfaDenialCodes) or ResultCode in (credFailureCodes)
+    | project FailTime = TimeGenerated, UserPrincipalName,
+              FailIp      = tostring(IPAddress),
+              FailCountry = tostring(LocationDetails.countryOrRegion),
+              FailAsn     = AutonomousSystemNumber,
+              FailApp     = AppDisplayName,
+              FailCode    = ResultCode,
+              FailKind    = iff(ResultCode in (mfaDenialCodes), "MfaDenied", "BadCredential");
+// Narrow the success set to users who had enough failures at all - keeps the
+// join from fanning out across every successful sign-in in the tenant.
+let BurstUsers =
+    Failures
+    | summarize FailureTotal = count() by UserPrincipalName
+    | where FailureTotal >= minDenials
+    | project UserPrincipalName;
 let Successes =
     SigninLogs
     | where TimeGenerated > ago(lookback)
-    | where ResultType == 0
-    | extend Ip = tostring(IPAddress)
+    | extend ResultCode = toint(ResultType)
+    | where ResultCode == 0
+    | where UserPrincipalName in (BurstUsers)
     | project SuccessTime = TimeGenerated, UserPrincipalName, UserId,
-              SuccessIp = Ip,
+              SuccessIp = tostring(IPAddress),
               SuccessCountry = tostring(LocationDetails.countryOrRegion),
               SuccessCity = tostring(LocationDetails.city),
               SuccessAsn = AutonomousSystemNumber,
@@ -64,21 +81,44 @@ let Successes =
               SuccessConditionalAccess = ConditionalAccessStatus,
               SuccessAuthRequirement = AuthenticationRequirement,
               SuccessCorrelationId = CorrelationId;
-Denials
-| join kind=inner (Successes) on UserPrincipalName
-| where SuccessTime between (FirstDenial .. (LastDenial + successWindow))
-// Baseline: has this user signed in from this ASN before the burst started?
+// Sliding window anchored on each success, NOT bin(). A fixed 30-minute bin
+// splits a burst that straddles a bin boundary into two partial counts, each
+// of which can fall under the threshold - the burst is then never detected.
+Successes
+| join kind=inner (Failures) on UserPrincipalName
+| where FailTime between ((SuccessTime - burstWindow) .. SuccessTime)
+| summarize DenialCount     = count(),
+            MfaDenials      = countif(FailKind == "MfaDenied"),
+            BadCredentials  = countif(FailKind == "BadCredential"),
+            FirstDenial     = min(FailTime),
+            LastDenial      = max(FailTime),
+            DenialIPs       = make_set(FailIp, 20),
+            DenialCountries = make_set(FailCountry, 10),
+            DenialAsns      = make_set(FailAsn, 10),
+            DenialApps      = make_set(FailApp, 10),
+            DenialCodes     = make_set(FailCode, 10),
+            DistinctIPs     = dcount(FailIp)
+    by SuccessTime, UserPrincipalName, UserId, SuccessIp, SuccessCountry,
+       SuccessCity, SuccessAsn, SuccessApp, SuccessClient, SuccessDevice,
+       SuccessDeviceCompliant, SuccessUserAgent, SuccessConditionalAccess,
+       SuccessAuthRequirement, SuccessCorrelationId
+| where DenialCount >= minDenials
+// Baseline: had this user signed in from this ASN / country before?
 | join kind=leftouter (
       SigninLogs
-      | where TimeGenerated between (ago(30d) .. ago(lookback))
-      | where ResultType == 0
+      | where TimeGenerated between (ago(baselineWindow) .. ago(lookback))
+      | extend ResultCode = toint(ResultType)
+      | where ResultCode == 0
       | summarize KnownAsns = make_set(AutonomousSystemNumber, 200),
                   KnownCountries = make_set(tostring(LocationDetails.countryOrRegion), 50)
           by UserPrincipalName
   ) on UserPrincipalName
-| extend NewAsn     = isnotempty(KnownAsns) and SuccessAsn !in (KnownAsns)
-| extend NewCountry = isnotempty(KnownCountries) and SuccessCountry !in (KnownCountries)
-| extend SuccessFromDenialIp = SuccessIp in (DenialIPs)
+| extend BaselineAvailable = array_length(KnownAsns) > 0
+// set_has_element, not `in` - KnownAsns / DenialIPs are per-row dynamic
+// columns, and the `in` operator expects a constant list or tabular expression.
+| extend NewAsn     = BaselineAvailable and not(set_has_element(KnownAsns, SuccessAsn))
+| extend NewCountry = BaselineAvailable and not(set_has_element(KnownCountries, SuccessCountry))
+| extend SuccessFromDenialIp = set_has_element(DenialIPs, SuccessIp)
 | extend LegacyAuth = SuccessClient in ("Other clients", "IMAP4", "POP3",
       "SMTP", "Exchange ActiveSync", "Authenticated SMTP",
       "Exchange Web Services", "Other clients; Older Office clients")
@@ -90,17 +130,22 @@ Denials
       iff(LegacyAuth, "LegacyAuthClient", ""),
       iff(SuccessConditionalAccess =~ "notApplied", "NoConditionalAccessApplied", ""),
       iff(SuccessAuthRequirement =~ "singleFactorAuthentication", "SingleFactorSuccess", ""),
-      iff(DenialCount >= 20, "HighVolumePushBurst", "")
+      iff(MfaDenials >= 10, "HighVolumePushBurst", ""),
+      iff(BadCredentials >= 10, "CredentialGuessing", ""),
+      iff(not(BaselineAvailable), "BaselineUnavailable-CheckRuleLookupPeriod", "")
   ), dynamic([""]))
 | extend Severity = case(
       SuccessFromDenialIp and (NewAsn or NewCountry), "High",
+      SuccessFromDenialIp and MfaDenials >= minDenials, "High",
       array_length(Signals) >= 3, "High",
-      SuccessFromDenialIp or NewCountry or LegacyAuth, "Medium",
+      SuccessFromDenialIp or NewCountry or NewAsn or LegacyAuth, "Medium",
+      not(BaselineAvailable) and MfaDenials >= minDenials, "Medium",
       "Low")
 | where Severity != "Low"
 | project FirstDenial, LastDenial, SuccessTime, Severity, Signals,
-          UserPrincipalName, DenialCount, DistinctIPs, DenialCodes,
-          DenialIPs, DenialCountries, DenialAsns, DenialApps,
+          UserPrincipalName, DenialCount, MfaDenials, BadCredentials,
+          DistinctIPs, DenialCodes, DenialIPs, DenialCountries, DenialAsns,
+          DenialApps, BaselineAvailable,
           SuccessIp, SuccessCountry, SuccessCity, SuccessAsn, SuccessApp,
           SuccessClient, SuccessDevice, SuccessDeviceCompliant,
           SuccessUserAgent, SuccessConditionalAccess, SuccessAuthRequirement,
@@ -117,10 +162,12 @@ Denials
 //   OfficeActivity | where Operation has_any ("FileDownloaded", "FileSyncDownloaded")
 // --- Defender-XDR-only equivalent ------------------------------------------
 // Without the Entra connector, approximate with:
-//   AADSignInEventsBeta  (Defender XDR, same schema shape as SigninLogs), or
+//   AADSignInEventsBeta  (Defender XDR; ErrorCode is already an int there), or
 //   IdentityLogonEvents  (on-prem AD / AD FS: use FailureReason and
 //                         LogonType instead of ResultType)
 // --- Tuning -----------------------------------------------------------------
 // Expect benign bursts from users with a broken Authenticator enrolment, VPN
 // re-auth storms, and shared service identities. Baseline minDenials per
 // tenant, and exclude known-bad-UX apps rather than whole users.
+// If the join fans out too far in a large tenant, raise minDenials (which
+// shrinks BurstUsers) before touching the window.
