@@ -3,18 +3,18 @@
   "feed_id": "ti-daily-top10",
   "feed_name": "Daily Threat Intelligence Output - Top 10 Vulnerabilities and Cyber Incidents",
   "report": {
-    "check_performed_at": "2026-11-09T10:45:00Z",
-    "check_performed_at_local": "2026-11-09",
+    "check_performed_at": "2026-11-10T10:45:00Z",
+    "check_performed_at_local": "2026-11-10",
     "timezone": "UTC",
     "coverage_window": {
-      "start": "2026-11-08T10:45:00Z",
-      "end": "2026-11-09T10:45:00Z",
+      "start": "2026-11-09T10:45:00Z",
+      "end": "2026-11-10T10:45:00Z",
       "duration_hours": 24.0,
-      "note": "UK-focused run (Monday). No new UK government or UK corporate incident or exploitation first reported inside the window was found; all 10 entries are carry-overs, ranking unchanged. Context only: NCSC Annual Review (3 Nov; 337 incidents, 80 nationally significant) and UK AI Minister warning that a serious breach is 'extremely likely'."
+      "note": "UK-focused run (Tuesday). No new UK government or UK corporate incident or exploitation first reported inside the window was found; all 10 entries are carry-overs, ranking unchanged. Searches surfaced only older items (Bristol/Wallstreet 27 Oct, TFG London/Phase Eight 11 Oct, undated Foreign Office reporting) which could not be dated into the window."
     },
     "entry_count": 10,
     "generated_by": "scheduled-claude-research",
-    "next_check_due": "2026-11-10T10:45:00Z"
+    "next_check_due": "2026-11-11T10:45:00Z"
   },
   "collection_metadata": {
     "collection_method": "open-source web search aggregation (search snippets only)",
@@ -50,7 +50,8 @@
       "2026-11-06 run: search-result summaries only; 3AM/Bristol schools details unverified; nothing else new dated within the window; Collabora entry rotated out as oldest.",
       "2026-11-07 run: search-result summaries only; little new dated inside the window, so most entries are carry-overs and remain secondary-source and unverified.",
       "2026-11-08 run: search-result summaries only; searches surfaced nothing new dated within the window (weekend), so entries are carry-overs and remain secondary-source and unverified.",
-      "2026-11-09 run: search-result summaries only (computing.co.uk not reachable from this environment); nothing new dated within the window, so entries are carry-overs and remain secondary-source and unverified."
+      "2026-11-09 run: search-result summaries only (computing.co.uk not reachable from this environment); nothing new dated within the window, so entries are carry-overs and remain secondary-source and unverified.",
+      "2026-11-10 run: search-result summaries only; nothing new dated within the window was found, so entries are carry-overs and remain secondary-source and unverified. KEV additions dated 10 Nov could not be confirmed."
     ],
     "confidence_legend": {
       "high": "Corroborated by the vendor advisory or by multiple independent reputable sources.",
