@@ -1,0 +1,80 @@
+// ============================================================================
+// A2 - Signed Binary Proxy Execution (LOLBin abuse)
+// ATT&CK: T1218.011 (Rundll32), T1218.005 (Mshta), T1218.010 (Regsvr32),
+//         T1218.007 (Msiexec), T1218 (System Binary Proxy Execution),
+//         T1059.005/.007 (VBScript / JavaScript)
+// Tables: DeviceProcessEvents
+// Why:    Rundll32 and Mshta sit in the top handful of techniques in every
+//         recent Red Canary Threat Detection Report. Loaders (SocGholish,
+//         Gootloader, Qakbot-style delivery) and fake-update chains proxy
+//         their execution through Microsoft-signed binaries to defeat naive
+//         allow-listing and signature trust.
+// ============================================================================
+let lookback = 7d;
+let scriptHosts = dynamic(["wscript.exe", "cscript.exe", "mshta.exe"]);
+let officeParents = dynamic(["winword.exe", "excel.exe", "powerpnt.exe",
+      "outlook.exe", "msaccess.exe", "visio.exe", "onenote.exe",
+      "wordpad.exe", "acrord32.exe"]);
+let archiveParents = dynamic(["7zfm.exe", "winrar.exe", "explorer.exe",
+      "isoburn.exe", "opera.exe", "chrome.exe", "msedge.exe", "firefox.exe"]);
+DeviceProcessEvents
+| where Timestamp > ago(lookback)
+| where FileName in~ ("rundll32.exe", "mshta.exe", "regsvr32.exe",
+                      "msiexec.exe", "installutil.exe", "regasm.exe",
+                      "regsvcs.exe", "odbcconf.exe", "control.exe",
+                      "cmstp.exe", "verclsid.exe", "pcalua.exe",
+                      "forfiles.exe", "wscript.exe", "cscript.exe")
+| extend cmd = tolower(ProcessCommandLine)
+| extend Technique = case(
+      FileName =~ "rundll32.exe",   "T1218.011 Rundll32",
+      FileName =~ "mshta.exe",      "T1218.005 Mshta",
+      FileName =~ "regsvr32.exe",   "T1218.010 Regsvr32",
+      FileName =~ "msiexec.exe",    "T1218.007 Msiexec",
+      FileName in~ ("wscript.exe", "cscript.exe"), "T1059.005/.007 Script Host",
+      "T1218 System Binary Proxy Execution")
+| extend Signals = set_difference(pack_array(
+      // Remote payload fetched by the LOLBin itself.
+      iff(cmd has_any ("http://", "https://", "ftp://") or cmd matches regex @"\\\\[a-z0-9\.\-]+\\", "RemotePayload", ""),
+      // Inline script / protocol handlers - classic mshta + rundll32 tricks.
+      iff(cmd has_any ("javascript:", "vbscript:", "about:", "data:text", "scriptlet", "wscript.shell", "activexobject", "getobject("), "InlineScript", ""),
+      // rundll32 running a DLL out of a user-writable directory.
+      iff(cmd has_any ("\\appdata\\", "\\temp\\", "\\users\\public\\", "\\programdata\\", "\\downloads\\", "\\$recycle.bin\\", "\\windows\\tasks\\", "\\perflogs\\"), "UserWritablePath", ""),
+      // Credential/LSASS dumping through comsvcs, and other known DLL exports.
+      iff(cmd has_any ("comsvcs.dll", "minidump", "shell32.dll,control_rundll", "advpack.dll", "ieadvpack.dll", "zipfldr.dll,routethecall", "url.dll,openurl", "pcwutl.dll,launchapplication", "setupapi.dll,installhinfsection", "dfshim.dll"), "KnownAbusedExport", ""),
+      // Masquerading as a document / double extension.
+      iff(cmd matches regex @"\.(pdf|doc|docx|xls|xlsx|jpg|png|txt|rtf|one)\s*[""']?\s*(,|$)" and cmd has_any ("rundll32", ".dll"), "DocumentLureName", ""),
+      // Scriptlet / COM scriptlet registration (regsvr32 "squiblydoo").
+      iff(cmd has_all ("/i:", "scrobj.dll") or cmd has_all ("-i:", "scrobj.dll"), "Squiblydoo", ""),
+      // msiexec installing straight from the internet or quiet-installing.
+      iff(FileName =~ "msiexec.exe" and cmd has_any ("http", "/q") and cmd has_any ("http", "\\temp\\", "\\appdata\\"), "RemoteOrSilentMsi", ""),
+      // DLL with no extension or an odd one - evades extension-based rules.
+      iff(FileName =~ "rundll32.exe" and cmd matches regex @"rundll32(\.exe)?[\s""']+[^,\s]+\.(txt|log|dat|tmp|jpg|png|ini|bin|xml)\s*,", "DllWithOddExtension", "")
+  ), dynamic([""]))
+| extend ParentIsOffice     = InitiatingProcessFileName in~ (officeParents)
+| extend ParentIsScriptHost = InitiatingProcessFileName in~ (scriptHosts)
+| extend ParentIsBrowserOrArchive = InitiatingProcessFileName in~ (archiveParents)
+// rundll32 with no arguments at all is a classic injection host.
+| extend EmptyArgs = FileName =~ "rundll32.exe"
+      and isnotempty(ProcessCommandLine)
+      and not(cmd has ",")
+      and not(cmd has_any ("http", "\\"))
+| extend SignalCount = array_length(Signals)
+| where SignalCount >= 1 or ParentIsOffice or ParentIsScriptHost or EmptyArgs
+| extend Severity = case(
+      ParentIsOffice or Signals has_any ("Squiblydoo", "KnownAbusedExport"), "High",
+      SignalCount >= 2 or ParentIsScriptHost or ParentIsBrowserOrArchive, "High",
+      SignalCount == 1 or EmptyArgs, "Medium",
+      "Low")
+| project Timestamp, Severity, Technique, Signals, EmptyArgs,
+          ParentIsOffice, ParentIsScriptHost,
+          DeviceName, AccountDomain, AccountName,
+          FileName, ProcessCommandLine, FolderPath,
+          InitiatingProcessFileName, InitiatingProcessCommandLine,
+          ProcessId, InitiatingProcessId, ReportId, DeviceId
+| order by Timestamp desc
+// --- Tuning -----------------------------------------------------------------
+// Printer drivers, Citrix, Autodesk and some installers legitimately use
+// rundll32/msiexec with remote or odd arguments. Exclude on the full triple of
+// (parent, image path, DLL export) and keep the exclusion list in a watchlist
+// rather than inline so it is reviewable:
+//   | where ProcessCommandLine !startswith @"C:\Windows\system32\rundll32.exe printui.dll,PrintUIEntry"

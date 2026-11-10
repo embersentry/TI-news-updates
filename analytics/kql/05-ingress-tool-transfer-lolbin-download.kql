@@ -1,0 +1,106 @@
+// ============================================================================
+// A5 - Ingress Tool Transfer via native download utilities
+// ATT&CK: T1105 (Ingress Tool Transfer), T1218 (proxy execution),
+//         T1071.001 (Application Layer Protocol: Web)
+// Tables: DeviceProcessEvents, DeviceNetworkEvents
+// Why:    Pulling the next stage down with a tool that is already on the box
+//         is one of the most reliably observed behaviours in Red Canary's
+//         data - certutil, bitsadmin, curl and now winget/msiexec. Correlating
+//         the command line with an actual outbound connection from the same
+//         process removes most of the false positives a command-line-only
+//         rule produces.
+// ============================================================================
+let lookback = 7d;
+let correlationWindow = 5m;
+let downloadUtilities = dynamic([
+      "certutil.exe", "bitsadmin.exe", "curl.exe", "wget.exe", "esentutl.exe",
+      "finger.exe", "ftp.exe", "hh.exe", "ieexec.exe", "mshta.exe",
+      "msiexec.exe", "expand.exe", "replace.exe", "extrac32.exe",
+      "desktopimgdownldr.exe", "makecab.exe", "print.exe", "winget.exe",
+      "advpack.dll", "powershell.exe", "pwsh.exe", "wscript.exe", "cscript.exe"]);
+let Downloads =
+    DeviceProcessEvents
+    | where Timestamp > ago(lookback)
+    | where FileName in~ (downloadUtilities)
+    | extend cmd = tolower(ProcessCommandLine)
+    // A remote source must be present - URL, UNC path or an IP literal.
+    | extend RemoteSource = extract(@"((?:https?|ftp|tftp)://[^\s""']+)", 1, ProcessCommandLine)
+    | extend UncSource = extract(@"(\\\\[a-zA-Z0-9\.\-_]+\\[^\s""']+)", 1, ProcessCommandLine)
+    | where isnotempty(RemoteSource) or isnotempty(UncSource)
+    | extend Method = case(
+          FileName =~ "certutil.exe"   and cmd has_any ("urlcache", "verifyctl", "-f ", "/f "), "certutil urlcache",
+          FileName =~ "bitsadmin.exe"  and cmd has_any ("/transfer", "/addfile", "/create"), "bitsadmin transfer",
+          FileName in~ ("curl.exe", "wget.exe") and cmd has_any (" -o", " --output", " -O"), "curl/wget to file",
+          FileName =~ "esentutl.exe"   and cmd has "/y", "esentutl copy",
+          FileName in~ ("expand.exe", "extrac32.exe", "replace.exe", "makecab.exe", "print.exe"), "copy-utility over UNC/HTTP",
+          FileName =~ "desktopimgdownldr.exe", "desktopimgdownldr",
+          FileName in~ ("powershell.exe", "pwsh.exe") and cmd has_any ("downloadfile", "downloadstring", "invoke-webrequest", "start-bitstransfer", "invoke-restmethod"), "PowerShell web client",
+          FileName in~ ("wscript.exe", "cscript.exe", "mshta.exe"), "script host fetch",
+          FileName =~ "msiexec.exe", "msiexec remote package",
+          FileName =~ "winget.exe" and cmd has_any ("--manifest", "-m "), "winget arbitrary manifest",
+          strcat(FileName, " remote arg"))
+    // Payload written to, or executed from, a user-writable directory.
+    | extend WritesToUserWritable = cmd has_any ("\\appdata\\", "\\temp\\",
+          "\\users\\public\\", "\\programdata\\", "\\downloads\\", "\\perflogs\\",
+          "\\windows\\tasks\\", "\\$recycle.bin\\", "%temp%", "%appdata%")
+    // Executable or script payload extension in the command line.
+    | extend PayloadIsExecutable = cmd matches regex @"\.(exe|dll|ps1|bat|cmd|vbs|js|jse|wsf|hta|scr|msi|pif|lnk|cpl|iso|img|7z|zip|rar)([\s""']|$)"
+    // Raw IP, non-standard port, or a known paste/tunnel host.
+    | extend RemoteHost = tolower(tostring(parse_url(RemoteSource).Host))
+    | extend RawIpUrl = RemoteHost matches regex @"^\d{1,3}(\.\d{1,3}){3}$"
+    | extend SuspiciousHost = RemoteHost has_any ("pastebin", "paste.ee", "hastebin",
+          "transfer.sh", "anonfiles", "gofile", "temp.sh", "file.io", "bashupload",
+          "discordapp.com", "cdn.discordapp.com", "ngrok", "trycloudflare.com",
+          "telegra.ph", "api.telegram.org", "raw.githubusercontent.com",
+          "gitlab.io", "githubusercontent.com", "workers.dev", "catbox.moe")
+    | project Timestamp, DeviceId, DeviceName, AccountDomain, AccountName,
+              FileName, ProcessCommandLine, FolderPath, Method, RemoteSource,
+              UncSource, RemoteHost, RawIpUrl, SuspiciousHost,
+              WritesToUserWritable, PayloadIsExecutable,
+              InitiatingProcessFileName, InitiatingProcessCommandLine,
+              ProcessId, InitiatingProcessId, ReportId;
+// Confirm the process actually reached out - turns "suspicious string" into
+// "observed transfer".
+let Egress =
+    DeviceNetworkEvents
+    | where Timestamp > ago(lookback)
+    | where ActionType in ("ConnectionSuccess", "ConnectionRequest", "InboundConnectionAccepted", "ConnectionFound")
+    | where isnotempty(RemoteIP)
+    | where ipv4_is_private(RemoteIP) != true or isnotempty(RemoteUrl)
+    | project NetTime = Timestamp, DeviceId, InitiatingProcessId,
+              RemoteIP, RemotePort, RemoteUrl;
+Downloads
+| join kind=leftouter (Egress) on DeviceId, $left.ProcessId == $right.InitiatingProcessId
+| where isnull(NetTime)
+    or (NetTime between (Timestamp .. (Timestamp + correlationWindow)))
+| summarize ObservedConnections = dcountif(strcat(RemoteIP, ":", RemotePort), isnotempty(RemoteIP)),
+            RemoteIPs   = make_set_if(RemoteIP, isnotempty(RemoteIP), 10),
+            RemotePorts = make_set_if(RemotePort, isnotempty(RemoteIP), 10),
+            RemoteUrls  = make_set_if(RemoteUrl, isnotempty(RemoteUrl), 10)
+    by Timestamp, DeviceId, DeviceName, AccountDomain, AccountName, FileName,
+       ProcessCommandLine, FolderPath, Method, RemoteSource, UncSource,
+       RemoteHost, RawIpUrl, SuspiciousHost, WritesToUserWritable,
+       PayloadIsExecutable, InitiatingProcessFileName,
+       InitiatingProcessCommandLine, ProcessId, InitiatingProcessId, ReportId
+| extend ConnectionConfirmed = ObservedConnections > 0
+| extend Severity = case(
+      ConnectionConfirmed and PayloadIsExecutable and (WritesToUserWritable or RawIpUrl or SuspiciousHost), "High",
+      ConnectionConfirmed and (PayloadIsExecutable or WritesToUserWritable), "High",
+      PayloadIsExecutable and WritesToUserWritable, "Medium",
+      ConnectionConfirmed, "Medium",
+      "Low")
+| where Severity != "Low"
+| project Timestamp, Severity, Method, ConnectionConfirmed, ObservedConnections,
+          RemoteSource, RemoteHost, RemoteIPs, RemotePorts, RemoteUrls,
+          RawIpUrl, SuspiciousHost, PayloadIsExecutable, WritesToUserWritable,
+          DeviceName, AccountDomain, AccountName, FileName, ProcessCommandLine,
+          InitiatingProcessFileName, InitiatingProcessCommandLine,
+          ProcessId, ReportId, DeviceId
+| order by Timestamp desc
+// --- Tuning -----------------------------------------------------------------
+// Patch tooling, winget/Chocolatey, Office click-to-run and vendor updaters
+// drive the benign volume. Exclude by (parent process + remote host), e.g.
+//   | where not(InitiatingProcessFileName =~ "ccmexec.exe")
+//   | where RemoteHost !endswith "contoso-internal.com"
+// raw.githubusercontent.com is in the suspicious list deliberately - if your
+// developers use it legitimately, scope the exclusion to those devices only.

@@ -1,0 +1,57 @@
+// ============================================================================
+// A1 - Suspicious PowerShell Execution (encoded / downloaded / hidden)
+// ATT&CK: T1059.001 (PowerShell), T1027 (Obfuscated Files or Information),
+//         T1105 (Ingress Tool Transfer)
+// Tables: DeviceProcessEvents  (Defender XDR advanced hunting / Sentinel via
+//         the Microsoft Defender XDR data connector)
+// Why:    Command and Scripting Interpreter is the single most prevalent
+//         technique in Red Canary's Threat Detection Report, and PowerShell is
+//         its dominant sub-technique. Nearly every commodity loader, RMM abuse
+//         chain and ransomware precursor touches it.
+// Model:  multi-signal scoring. One signal alone is noisy in any real estate;
+//         two or more co-occurring signals is the detection.
+// ============================================================================
+let lookback = 7d;
+// Interpreters, matched on the PE metadata too so renamed copies still hit.
+let psImages = dynamic(["powershell.exe", "pwsh.exe", "powershell_ise.exe"]);
+let psOriginalNames = dynamic(["PowerShell.EXE", "pwsh.dll", "PowerShell_ISE.EXE"]);
+DeviceProcessEvents
+| where Timestamp > ago(lookback)
+| where FileName has_any (psImages)
+    or ProcessVersionInfoOriginalFileName in~ (psOriginalNames)
+| extend cmd = tolower(ProcessCommandLine)
+| extend Signals = set_difference(pack_array(
+      iff(cmd has_any ("-enc", "-ec ", "-e ", "encodedcommand", "frombase64string", "::frombase64"), "EncodedOrBase64", ""),
+      iff(cmd has_any ("downloadstring", "downloadfile", "downloaddata", "invoke-webrequest", "iwr ", "invoke-restmethod", "start-bitstransfer", "net.webclient", "curl ", "wget "), "RemoteDownload", ""),
+      iff(cmd has_any ("-w hidden", "-windowstyle hidden", "-nop", "-noprofile", "-noni", "-noninteractive", "-ep bypass", "-executionpolicy bypass", "-exec bypass"), "StealthFlags", ""),
+      iff(cmd has_any ("iex", "invoke-expression", "invoke-command", "&('", ".invoke(", "scriptblock::create"), "DynamicExecution", ""),
+      iff(cmd has_any ("[char]", "-join", "-replace", "`", "${", "char[]", "'+'", "\"+\""), "ObfuscationArtifacts", ""),
+      iff(cmd has_any ("virtualalloc", "createremotethread", "memorystream", "deflatestream", "reflection.assembly", "unsafe", "marshal::"), "InMemoryOrInjection", ""),
+      iff(cmd has_any ("-command -", "- | iex", "cat ", "get-content") and cmd has "iex", "StdinPipe", ""),
+      iff(strlen(ProcessCommandLine) > 1200, "VeryLongCommandLine", "")
+  ), dynamic([""]))
+| extend SignalCount = array_length(Signals)
+// Parents that have no business spawning PowerShell at all - treat as a
+// severity amplifier rather than a filter.
+| extend SuspiciousParent = InitiatingProcessFileName in~ (
+      "winword.exe", "excel.exe", "powerpnt.exe", "outlook.exe", "msaccess.exe",
+      "visio.exe", "mshta.exe", "wscript.exe", "cscript.exe", "rundll32.exe",
+      "regsvr32.exe", "msiexec.exe", "wmiprvse.exe", "w3wp.exe", "httpd.exe",
+      "sqlservr.exe", "explorer.exe", "7zfm.exe", "winrar.exe", "acrord32.exe")
+| where SignalCount >= 2 or (SignalCount >= 1 and SuspiciousParent)
+| extend Severity = case(
+      SignalCount >= 4 or (SignalCount >= 2 and SuspiciousParent), "High",
+      SignalCount == 3, "Medium",
+      "Low")
+| project Timestamp, Severity, SignalCount, Signals, SuspiciousParent,
+          DeviceName, AccountDomain, AccountName, FileName,
+          ProcessCommandLine, InitiatingProcessFileName,
+          InitiatingProcessCommandLine, InitiatingProcessAccountName,
+          ProcessId, InitiatingProcessId, ReportId, DeviceId
+| order by Timestamp desc
+// --- Tuning -----------------------------------------------------------------
+// Expect legitimate hits from SCCM/Intune, Chocolatey, backup agents and CI
+// runners. Baseline first, then exclude on the *parent chain plus command
+// shape*, never on the signal itself:
+//   | where not(InitiatingProcessFileName =~ "ccmexec.exe" and cmd has "ccmsetup")
+//   | where AccountName !in~ ("svc_sccm", "svc_backup")

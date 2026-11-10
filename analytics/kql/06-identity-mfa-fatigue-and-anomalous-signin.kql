@@ -1,0 +1,126 @@
+// ============================================================================
+// A6 - Identity attack: MFA fatigue / spray followed by a successful sign-in
+// ATT&CK: T1621 (Multi-Factor Authentication Request Generation),
+//         T1110.003 (Password Spraying), T1078.004 (Valid Accounts: Cloud),
+//         T1556.006 (Modify Authentication Process: MFA)
+// Tables: SigninLogs (Sentinel, Entra ID connector)
+//         Optional: AADNonInteractiveUserSignInLogs, AuditLogs
+//         Defender-XDR-only equivalent noted at the bottom.
+// Why:    Identity is now the dominant initial-access surface in Red Canary's
+//         reporting - MFA push bombing, AiTM phishing and "valid accounts"
+//         abuse outrank most endpoint-side initial access. The detection that
+//         matters is not a failure burst on its own, it is a failure burst
+//         that ends in a success.
+// ============================================================================
+let lookback = 3d;
+let burstWindow = 30m;         // window over which denials are counted
+let successWindow = 1h;        // how long after the burst a success still counts
+let minDenials = 5;            // tune to your estate; 5-10 is typical
+// Entra ID result codes that mean "the user was challenged and it did not pass"
+let mfaDenialCodes = dynamic([
+      50074,   // strong auth required, user did not satisfy
+      50076,   // MFA required (session), re-auth needed
+      50079,   // user must enrol in MFA
+      500121,  // auth failed during strong auth request (denied / timed out)
+      50072,   // user must enrol in MFA (interrupt)
+      50097,   // device authentication required
+      50158,   // external security challenge not satisfied
+      53003,   // blocked by Conditional Access
+      53004    // user must enrol in MFA to access
+  ]);
+let Denials =
+    SigninLogs
+    | where TimeGenerated > ago(lookback)
+    | where ResultType in (mfaDenialCodes)
+    | extend Ip = tostring(IPAddress)
+    | extend Country = tostring(LocationDetails.countryOrRegion)
+    | extend City = tostring(LocationDetails.city)
+    | summarize DenialCount      = count(),
+                FirstDenial      = min(TimeGenerated),
+                LastDenial       = max(TimeGenerated),
+                DenialIPs        = make_set(Ip, 20),
+                DenialCountries  = make_set(Country, 10),
+                DenialAsns       = make_set(AutonomousSystemNumber, 10),
+                DenialApps       = make_set(AppDisplayName, 10),
+                DenialCodes      = make_set(ResultType, 10),
+                DistinctIPs      = dcount(Ip)
+        by UserPrincipalName, UserId, bin(TimeGenerated, burstWindow)
+    | where DenialCount >= minDenials;
+let Successes =
+    SigninLogs
+    | where TimeGenerated > ago(lookback)
+    | where ResultType == 0
+    | extend Ip = tostring(IPAddress)
+    | project SuccessTime = TimeGenerated, UserPrincipalName, UserId,
+              SuccessIp = Ip,
+              SuccessCountry = tostring(LocationDetails.countryOrRegion),
+              SuccessCity = tostring(LocationDetails.city),
+              SuccessAsn = AutonomousSystemNumber,
+              SuccessApp = AppDisplayName,
+              SuccessClient = ClientAppUsed,
+              SuccessDevice = tostring(DeviceDetail.displayName),
+              SuccessDeviceCompliant = tostring(DeviceDetail.isCompliant),
+              SuccessUserAgent = UserAgent,
+              SuccessConditionalAccess = ConditionalAccessStatus,
+              SuccessAuthRequirement = AuthenticationRequirement,
+              SuccessCorrelationId = CorrelationId;
+Denials
+| join kind=inner (Successes) on UserPrincipalName
+| where SuccessTime between (FirstDenial .. (LastDenial + successWindow))
+// Baseline: has this user signed in from this ASN before the burst started?
+| join kind=leftouter (
+      SigninLogs
+      | where TimeGenerated between (ago(30d) .. ago(lookback))
+      | where ResultType == 0
+      | summarize KnownAsns = make_set(AutonomousSystemNumber, 200),
+                  KnownCountries = make_set(tostring(LocationDetails.countryOrRegion), 50)
+          by UserPrincipalName
+  ) on UserPrincipalName
+| extend NewAsn     = isnotempty(KnownAsns) and SuccessAsn !in (KnownAsns)
+| extend NewCountry = isnotempty(KnownCountries) and SuccessCountry !in (KnownCountries)
+| extend SuccessFromDenialIp = SuccessIp in (DenialIPs)
+| extend LegacyAuth = SuccessClient in ("Other clients", "IMAP4", "POP3",
+      "SMTP", "Exchange ActiveSync", "Authenticated SMTP",
+      "Exchange Web Services", "Other clients; Older Office clients")
+| extend Signals = set_difference(pack_array(
+      iff(SuccessFromDenialIp, "SuccessFromSameIpAsDenials", ""),
+      iff(NewAsn, "UnfamiliarAsn", ""),
+      iff(NewCountry, "UnfamiliarCountry", ""),
+      iff(DistinctIPs >= 3, "DistributedSourceIPs", ""),
+      iff(LegacyAuth, "LegacyAuthClient", ""),
+      iff(SuccessConditionalAccess =~ "notApplied", "NoConditionalAccessApplied", ""),
+      iff(SuccessAuthRequirement =~ "singleFactorAuthentication", "SingleFactorSuccess", ""),
+      iff(DenialCount >= 20, "HighVolumePushBurst", "")
+  ), dynamic([""]))
+| extend Severity = case(
+      SuccessFromDenialIp and (NewAsn or NewCountry), "High",
+      array_length(Signals) >= 3, "High",
+      SuccessFromDenialIp or NewCountry or LegacyAuth, "Medium",
+      "Low")
+| where Severity != "Low"
+| project FirstDenial, LastDenial, SuccessTime, Severity, Signals,
+          UserPrincipalName, DenialCount, DistinctIPs, DenialCodes,
+          DenialIPs, DenialCountries, DenialAsns, DenialApps,
+          SuccessIp, SuccessCountry, SuccessCity, SuccessAsn, SuccessApp,
+          SuccessClient, SuccessDevice, SuccessDeviceCompliant,
+          SuccessUserAgent, SuccessConditionalAccess, SuccessAuthRequirement,
+          SuccessCorrelationId, UserId
+| order by SuccessTime desc
+// --- Follow-on hunt (run on any hit) ---------------------------------------
+// Business-email-compromise actors monetise the session within minutes. Pivot
+// on UserPrincipalName in:
+//   CloudAppEvents | where ActionType in ("New-InboxRule", "Set-InboxRule",
+//        "Set-Mailbox", "Add-MailboxPermission", "UpdateInboxRules")   // T1114.003
+//   AuditLogs | where OperationName has_any ("Add member to role",
+//        "Register security info", "Add app role assignment",
+//        "Consent to application", "Update user")                      // T1098
+//   OfficeActivity | where Operation has_any ("FileDownloaded", "FileSyncDownloaded")
+// --- Defender-XDR-only equivalent ------------------------------------------
+// Without the Entra connector, approximate with:
+//   AADSignInEventsBeta  (Defender XDR, same schema shape as SigninLogs), or
+//   IdentityLogonEvents  (on-prem AD / AD FS: use FailureReason and
+//                         LogonType instead of ResultType)
+// --- Tuning -----------------------------------------------------------------
+// Expect benign bursts from users with a broken Authenticator enrolment, VPN
+// re-auth storms, and shared service identities. Baseline minDenials per
+// tenant, and exclude known-bad-UX apps rather than whole users.
