@@ -138,3 +138,13 @@ them properly needs tables that are not universally onboarded:
   scheduled-task operational logs to keep the false-positive rate sane.
 
 Both are straightforward follow-ons if those tables are available.
+
+## Also in this folder
+
+- `workbooks/tam-account-health.kql` — a separate pack of account-health
+  queries for a Microsoft Sentinel workbook (telemetry and connector health,
+  detection coverage vs a client threat profile, noise/escalation trends,
+  governance trackers and an EWI RAG board). One query per workbook step, with
+  the suggested visualization noted inline. Unlike the six detection analytics
+  above, it does require Sentinel auditing and health monitoring to be enabled
+  and several watchlists; prerequisites are listed in the header of the file.

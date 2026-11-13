@@ -1,0 +1,445 @@
+// =====================================================================
+// TAM ACCOUNT HEALTH – KQL pack for a Microsoft Sentinel workbook
+// One query per monitored component. Paste each into its own workbook
+// step; the "VISUAL:" line says which visualization to pick.
+//
+// PREREQUISITES
+//  - Sentinel > Settings > Auditing and health monitoring: ON
+//    (populates SentinelHealth and SentinelAudit)
+//  - Defender XDR connector streaming DeviceInfo and AlertInfo
+//  - Watchlists (alias : columns):
+//      EstateInventory   : Hostname, AssetType, Owner
+//      ContractedSources : TableName, Owner, ExpectedMinMBPerDay
+//      ThreatProfile     : TechniqueId, TechniqueName, Priority
+//      DetectionInventory: RuleName, Source, TechniqueId   (one row per rule/technique)
+//      SIP               : ActionId, Action, Owner, DueDate, ClosedDate
+//      CSAT              : SurveyDate, Type, Score, Respondent, ActionedDate
+//  - Multi-tenant via Lighthouse: add a workspace parameter to the
+//    workbook and select all client workspaces, or prefix tables with
+//    workspace("<name>").
+// =====================================================================
+
+
+// =====================================================================
+// 1. TELEMETRY HEALTH
+// =====================================================================
+
+// ---------------------------------------------------------------------
+// 1.1 % of estate reporting (against the contracted asset list)
+// VISUAL: Tiles (Reporting %), threshold 97 = green
+// ---------------------------------------------------------------------
+let normalise = (h: string) { tostring(split(tolower(h), ".")[0]) };
+let seen =
+    union
+        (Heartbeat  | where TimeGenerated > ago(24h) | project Host = normalise(Computer)),
+        (DeviceInfo | where TimeGenerated > ago(24h) | project Host = normalise(DeviceName))
+    | distinct Host;
+_GetWatchlist('EstateInventory')
+| project Host = normalise(tostring(Hostname)), AssetType = tostring(AssetType), Owner = tostring(Owner)
+| join kind=leftouter (seen | extend Reporting = true) on Host
+| summarize Contracted = count(), Reporting = countif(Reporting == true)
+| extend ReportingPct = round(100.0 * Reporting / Contracted, 1);
+
+// ---------------------------------------------------------------------
+// 1.2 Assets NOT reporting (the remediation list, with owner)
+// VISUAL: Grid
+// ---------------------------------------------------------------------
+let normalise = (h: string) { tostring(split(tolower(h), ".")[0]) };
+let lastSeen =
+    union
+        (Heartbeat  | where TimeGenerated > ago(30d) | project Host = normalise(Computer),   TimeGenerated, Channel = "AMA/MMA"),
+        (DeviceInfo | where TimeGenerated > ago(30d) | project Host = normalise(DeviceName), TimeGenerated, Channel = "MDE")
+    | summarize LastSeen = max(TimeGenerated), Channels = make_set(Channel) by Host;
+_GetWatchlist('EstateInventory')
+| project Host = normalise(tostring(Hostname)), AssetType = tostring(AssetType), Owner = tostring(Owner)
+| join kind=leftouter lastSeen on Host
+| where isnull(LastSeen) or LastSeen < ago(24h)
+| project Host, AssetType, Owner, LastSeen, Channels,
+          DaysSilent = iff(isnull(LastSeen), real(null), round((now() - LastSeen) / 1d, 1))
+| order by DaysSilent desc;
+
+// ---------------------------------------------------------------------
+// 1.3 Agent health – servers (AMA/MMA heartbeat)
+// VISUAL: Tiles (HealthPct) + Grid (unhealthy list, remove last summarize)
+// ---------------------------------------------------------------------
+Heartbeat
+| where TimeGenerated > ago(14d)
+| summarize LastSeen = max(TimeGenerated), Agent = take_any(Category), OS = take_any(OSType) by Computer
+| extend Healthy = LastSeen > ago(1h)
+| summarize Total = count(), Healthy = countif(Healthy), Unhealthy = countif(not(Healthy))
+| extend HealthPct = round(100.0 * Healthy / Total, 1);
+
+// ---------------------------------------------------------------------
+// 1.4 Agent health – endpoints (Defender for Endpoint sensor)
+// VISUAL: Pie (by SensorHealthState) or Tiles (HealthPct)
+// ---------------------------------------------------------------------
+DeviceInfo
+| where TimeGenerated > ago(7d)
+| summarize arg_max(TimeGenerated, DeviceName, OSPlatform, OnboardingStatus, SensorHealthState) by DeviceId
+| where OnboardingStatus == "Onboarded"
+| summarize Devices = count() by SensorHealthState = coalesce(SensorHealthState, "Unknown")
+| extend Share = round(100.0 * Devices / toscalar(DeviceInfo | where TimeGenerated > ago(7d) | where OnboardingStatus == "Onboarded" | dcount(DeviceId)), 1);
+
+// ---------------------------------------------------------------------
+// 1.5 Daily reporting trend (for the monthly report)
+// VISUAL: Time chart
+// ---------------------------------------------------------------------
+union
+    (Heartbeat  | where TimeGenerated > ago(30d) | project TimeGenerated, Host = tolower(Computer),   Channel = "Servers"),
+    (DeviceInfo | where TimeGenerated > ago(30d) | project TimeGenerated, Host = tolower(DeviceName), Channel = "Endpoints")
+| summarize Reporting = dcount(Host) by Day = startofday(TimeGenerated), Channel
+| render timechart;
+
+// ---------------------------------------------------------------------
+// 1.6 Data connector health (Sentinel health monitoring)
+// VISUAL: Grid, Thresholds renderer on RAG column
+// ---------------------------------------------------------------------
+SentinelHealth
+| where TimeGenerated > ago(7d)
+| where SentinelResourceType == "Data connector"
+| summarize arg_max(TimeGenerated, Status, Description, Reason) by SentinelResourceName, SentinelResourceKind
+| extend RAG = case(Status == "Success", "Green", Status == "Partial success", "Amber", "Red")
+| project Connector = SentinelResourceName, Kind = SentinelResourceKind, RAG, Status, Reason, Description, LastChecked = TimeGenerated
+| order by RAG desc;
+
+// ---------------------------------------------------------------------
+// 1.7 Contracted log sources: arriving vs expected volume
+// VISUAL: Grid, Thresholds on Status (this is onboarding gate #1)
+// ---------------------------------------------------------------------
+let actual =
+    Usage
+    | where TimeGenerated > ago(24h)
+    | summarize MB24h = sum(Quantity), LastSeen = max(TimeGenerated) by DataType;
+_GetWatchlist('ContractedSources')
+| project DataType = tostring(TableName), Owner = tostring(Owner), MinMB = todouble(ExpectedMinMBPerDay)
+| join kind=leftouter actual on DataType
+| extend MB24h = coalesce(MB24h, 0.0)
+| extend Status = case(MB24h == 0, "Red - silent",
+                       MB24h < MinMB, "Amber - below expected",
+                       "Green")
+| project DataType, Owner, MB24h = round(MB24h, 2), MinMB, LastSeen, Status
+| order by Status desc;
+
+// ---------------------------------------------------------------------
+// 1.8 Per-source view inside shared tables (CEF appliances)
+//     Usage only sees tables; one silent firewall hides inside CommonSecurityLog.
+// VISUAL: Grid
+// ---------------------------------------------------------------------
+CommonSecurityLog
+| where TimeGenerated > ago(7d)
+| summarize LastSeen = max(TimeGenerated), Events24h = countif(TimeGenerated > ago(24h)) by DeviceVendor, DeviceProduct, Computer
+| extend Silent = LastSeen < ago(24h)
+| order by Silent desc, Events24h asc;
+
+// ---------------------------------------------------------------------
+// 1.9 Arriving but NOT parsed
+//     (a) CEF/LEEF landing in Syslog = collector parsing failure
+// VISUAL: Grid (should be empty)
+// ---------------------------------------------------------------------
+Syslog
+| where TimeGenerated > ago(24h)
+| where SyslogMessage has "CEF:" or SyslogMessage has "LEEF:"
+| summarize UnparsedEvents = count(), LastSeen = max(TimeGenerated), Sample = take_any(SyslogMessage) by Computer, HostName, Facility
+| order by UnparsedEvents desc;
+
+//     (b) DCR transformation / ingestion errors
+// VISUAL: Grid
+_LogOperation
+| where TimeGenerated > ago(7d)
+| where Level in ("Error", "Warning")
+| summarize Count = count(), LastSeen = max(TimeGenerated), Sample = take_any(Detail) by Category, Operation, Level
+| order by Count desc;
+
+// ---------------------------------------------------------------------
+// 1.10 Ingestion latency per table (minutes)
+// VISUAL: Bar chart (P95) – flag anything > 15 min
+// ---------------------------------------------------------------------
+union withsource = TableName isfuzzy = true
+    SecurityEvent, Syslog, CommonSecurityLog, SigninLogs, AuditLogs, AzureActivity, OfficeActivity, DeviceEvents
+| where TimeGenerated > ago(4h)
+| extend LatencyMin = datetime_diff('second', ingestion_time(), TimeGenerated) / 60.0
+| summarize P50 = round(percentile(LatencyMin, 50), 1), P95 = round(percentile(LatencyMin, 95), 1) by TableName
+| order by P95 desc;
+
+// ---------------------------------------------------------------------
+// 1.11 Ingestion drop vs 7-day baseline (EWI feed)
+// VISUAL: Grid; companion time chart below
+// ---------------------------------------------------------------------
+Usage
+| where TimeGenerated > ago(8d)
+| summarize Today = sumif(Quantity, TimeGenerated > ago(1d)),
+            Baseline = sumif(Quantity, TimeGenerated <= ago(1d)) / 7.0 by DataType
+| extend ChangePct = iff(Baseline == 0, real(null), round(100.0 * (Today - Baseline) / Baseline, 1))
+| where Baseline > 1 and (ChangePct < -50 or Today == 0)
+| order by ChangePct asc;
+
+Usage
+| where TimeGenerated > ago(30d)
+| summarize MB = sum(Quantity) by DataType, bin(TimeGenerated, 1d)
+| render timechart;
+
+
+// =====================================================================
+// 2. DETECTION COVERAGE
+// =====================================================================
+
+// ---------------------------------------------------------------------
+// 2.1 Active analytics rule inventory and failing rules
+// VISUAL: Tiles (distinct rules) + Grid (Failures > 0)
+// ---------------------------------------------------------------------
+SentinelHealth
+| where TimeGenerated > ago(1d)
+| where SentinelResourceType has "Analytic"
+| summarize LastRun = max(TimeGenerated), Runs = count(), Failures = countif(Status != "Success"),
+            LastIssue = take_anyif(Description, Status != "Success") by Rule = SentinelResourceName, Kind = SentinelResourceKind
+| order by Failures desc;
+
+// ---------------------------------------------------------------------
+// 2.2 Detection growth: rules added / removed per quarter
+//     First appearance per rule in SentinelAudit = "added". The earliest
+//     quarter in the lookback is inflated by pre-existing rules, so
+//     extend SentinelAudit retention to 2 years for clean history.
+// VISUAL: Bar chart (Added vs Removed by Quarter)
+// ---------------------------------------------------------------------
+let lookback = 365d;
+let quarterOf = (t: datetime) { strcat(datetime_part("year", t), "-Q", datetime_part("quarter", t)) };
+let audit = SentinelAudit
+    | where TimeGenerated > ago(lookback)
+    | where SentinelResourceType has "Analytic";
+let added = audit
+    | where OperationName has "Create or update"
+    | summarize FirstSeen = min(TimeGenerated) by SentinelResourceId
+    | summarize Added = count() by Quarter = quarterOf(FirstSeen);
+let removed = audit
+    | where OperationName has "delete"
+    | summarize Removed = dcount(SentinelResourceId) by Quarter = quarterOf(TimeGenerated);
+added
+| join kind=fullouter removed on Quarter
+| project Quarter = coalesce(Quarter, Quarter1), Added = coalesce(Added, 0), Removed = coalesce(Removed, 0)
+| extend NetGrowth = Added - Removed
+| order by Quarter asc;
+
+// ---------------------------------------------------------------------
+// 2.3 Coverage vs the client's threat profile
+//     True coverage = rules that exist for a technique (DetectionInventory
+//     watchlist, refreshed from a rule export). "Proven" = a detection for
+//     it actually fired in the last 90 days (Sentinel + Defender XDR).
+// VISUAL: Grid, Thresholds on Coverage; Tiles for counts per Coverage
+// ---------------------------------------------------------------------
+let firing =
+    union
+        (SecurityAlert
+         | where TimeGenerated > ago(90d)
+         | mv-expand Technique = todynamic(Techniques) to typeof(string)
+         | project Technique, Detection = AlertName),
+        (AlertInfo
+         | where TimeGenerated > ago(90d)
+         | mv-expand Technique = extract_all(@"(T\d{4}(?:\.\d{3})?)", AttackTechniques) to typeof(string)
+         | project Technique, Detection = Title)
+    | where isnotempty(Technique)
+    | summarize FiredDetections = dcount(Detection) by Technique;
+let rules =
+    _GetWatchlist('DetectionInventory')
+    | summarize Rules = dcount(tostring(RuleName)) by Technique = tostring(TechniqueId);
+_GetWatchlist('ThreatProfile')
+| project Technique = tostring(TechniqueId), Name = tostring(TechniqueName), Priority = tostring(Priority)
+| join kind=leftouter rules on Technique
+| join kind=leftouter firing on Technique
+| extend Rules = coalesce(Rules, 0), FiredDetections = coalesce(FiredDetections, 0)
+| extend Coverage = case(Rules > 0 and FiredDetections > 0, "Proven",
+                         Rules > 0, "Rule exists - unvalidated",
+                         "Gap")
+| project Technique, Name, Priority, Coverage, Rules, FiredDetections
+| order by Priority asc, Coverage desc;
+
+
+// =====================================================================
+// 3. NOISE AND ESCALATION
+// =====================================================================
+
+// ---------------------------------------------------------------------
+// 3.1 Top 10 noise generators (tuning backlog input)
+// VISUAL: Bar chart (Noise by Title) or Grid
+// ---------------------------------------------------------------------
+SecurityIncident
+| where CreatedTime > ago(30d)
+| summarize arg_max(TimeGenerated, *) by IncidentNumber
+| where Status == "Closed"
+| summarize Total = count(),
+            FalsePositive = countif(Classification == "FalsePositive"),
+            Benign = countif(Classification == "BenignPositive"),
+            TruePositive = countif(Classification == "TruePositive"),
+            AvgMinsToClose = round(avg(datetime_diff('minute', ClosedTime, CreatedTime)), 0)
+    by Title
+| extend Noise = FalsePositive + Benign, NoisePct = round(100.0 * (FalsePositive + Benign) / Total, 1)
+| top 10 by Noise desc;
+
+// ---------------------------------------------------------------------
+// 3.2 Escalation rate trend – weekly rate, not count
+//     Set escalationTag to the incident tag your SOC applies when it
+//     escalates to the client.
+// VISUAL: Time chart (EscalationRatePct)
+// ---------------------------------------------------------------------
+let escalationTag = "Escalated";
+SecurityIncident
+| where CreatedTime > ago(84d)
+| summarize arg_max(TimeGenerated, *) by IncidentNumber
+| extend Escalated = tostring(Labels) has escalationTag
+| summarize Incidents = count(), Escalations = countif(Escalated) by Week = startofweek(CreatedTime)
+| extend EscalationRatePct = round(100.0 * Escalations / Incidents, 1)
+| order by Week asc;
+
+// ---------------------------------------------------------------------
+// 3.3 Escalation trend direction (slope of the weekly rate)
+// VISUAL: Tiles (Trend + SlopePpPerWeek)
+// ---------------------------------------------------------------------
+let escalationTag = "Escalated";
+SecurityIncident
+| where CreatedTime > ago(84d)
+| summarize arg_max(TimeGenerated, *) by IncidentNumber
+| extend Escalated = tostring(Labels) has escalationTag
+| make-series Incidents = count(), Escalations = countif(Escalated)
+    on CreatedTime from startofweek(ago(84d)) to now() step 7d
+| extend Rate = series_divide(Escalations, Incidents)
+| extend Fit = series_fit_line_dynamic(Rate)
+| project SlopePpPerWeek = round(todouble(Fit.slope) * 100, 2), RSquare = round(todouble(Fit.rsquare), 2)
+| extend Trend = case(SlopePpPerWeek > 0.5, "Rising", SlopePpPerWeek < -0.5, "Falling", "Flat");
+
+
+// =====================================================================
+// 4. GOVERNANCE TRACKERS (watchlist-backed)
+// =====================================================================
+
+// ---------------------------------------------------------------------
+// 4.1 SIP closure – % of due actions closed on date
+// VISUAL: Tiles (ClosedOnDatePct) + Grid (remove summarize for detail)
+// ---------------------------------------------------------------------
+_GetWatchlist('SIP')
+| extend Due = todatetime(DueDate), Closed = todatetime(ClosedDate)
+| extend Outcome = case(isnotnull(Closed) and Closed <= Due, "Closed on date",
+                        isnotnull(Closed), "Closed late",
+                        Due < now(), "Overdue",
+                        "Open - not yet due")
+| summarize Actions = count(),
+            OnDate = countif(Outcome == "Closed on date"),
+            Late = countif(Outcome == "Closed late"),
+            Overdue = countif(Outcome == "Overdue"),
+            OpenNotDue = countif(Outcome == "Open - not yet due")
+| extend ClosedOnDatePct = round(100.0 * OnDate / (OnDate + Late + Overdue), 1);
+
+// ---------------------------------------------------------------------
+// 4.2 CSAT – score trend and 48h detractor actioning
+// VISUAL: Time chart (avg score by month/Type) + Grid (Breach48h)
+// ---------------------------------------------------------------------
+let threshold = 7;   // scores below this are detractors
+_GetWatchlist('CSAT')
+| extend Date = todatetime(SurveyDate), Score = toint(Score), Actioned = todatetime(ActionedDate), Type = tostring(Type)
+| summarize AvgScore = round(avg(Score), 1), Responses = count() by Month = startofmonth(Date), Type
+| order by Month asc;
+
+let threshold = 7;
+_GetWatchlist('CSAT')
+| extend Date = todatetime(SurveyDate), Score = toint(Score), Actioned = todatetime(ActionedDate)
+| where Score < threshold
+| extend HoursToAction = iff(isnull(Actioned), round((now() - Date) / 1h, 0), round((Actioned - Date) / 1h, 0))
+| extend Breach48h = HoursToAction > 48
+| project Date, Type, Respondent, Score, Actioned, HoursToAction, Breach48h
+| order by Breach48h desc, Date desc;
+
+// ---------------------------------------------------------------------
+// 4.3 Change & Risk Forum feed – client changes that affect detection
+// VISUAL: Grid (fortnightly review)
+// ---------------------------------------------------------------------
+let riskyOps = dynamic([
+    "MICROSOFT.INSIGHTS/DIAGNOSTICSETTINGS/DELETE",
+    "MICROSOFT.INSIGHTS/DATACOLLECTIONRULES/WRITE",
+    "MICROSOFT.INSIGHTS/DATACOLLECTIONRULES/DELETE",
+    "MICROSOFT.INSIGHTS/DATACOLLECTIONRULEASSOCIATIONS/DELETE",
+    "MICROSOFT.SECURITYINSIGHTS/DATACONNECTORS/DELETE",
+    "MICROSOFT.OPERATIONALINSIGHTS/WORKSPACES/TABLES/WRITE",
+    "MICROSOFT.OPERATIONALINSIGHTS/WORKSPACES/DATAEXPORTS/DELETE"]);
+union
+    (AzureActivity
+     | where TimeGenerated > ago(14d)
+     | where OperationNameValue in~ (riskyOps)
+     | where ActivityStatusValue in~ ("Success", "Succeeded")
+     | project TimeGenerated, Who = Caller, Change = OperationNameValue, Target = _ResourceId, Source = "Azure"),
+    (SentinelAudit
+     | where TimeGenerated > ago(14d)
+     | where OperationName has "delete" or Status != "Success"
+     | project TimeGenerated, Who = tostring(ExtendedProperties.CallerName), Change = OperationName,
+               Target = SentinelResourceName, Source = "Sentinel")
+| order by TimeGenerated desc;
+
+
+// =====================================================================
+// 5. EWI BOARD – one RAG row per indicator
+// VISUAL: Grid, Thresholds renderer on RAG (Green/Amber/Red)
+// =====================================================================
+let normalise = (h: string) { tostring(split(tolower(h), ".")[0]) };
+let escalationTag = "Escalated";
+let csatThreshold = 7;
+// Host is unhealthy if either channel that reports it is unhealthy
+let hosts = union
+    (Heartbeat
+     | where TimeGenerated > ago(14d)
+     | summarize LastSeen = max(TimeGenerated) by Host = normalise(Computer)
+     | extend Healthy = toint(LastSeen > ago(1h))),
+    (DeviceInfo
+     | where TimeGenerated > ago(14d)
+     | summarize arg_max(TimeGenerated, SensorHealthState, OnboardingStatus) by Host = normalise(DeviceName)
+     | where OnboardingStatus == "Onboarded"
+     | extend Healthy = toint(SensorHealthState == "Active"))
+    | summarize Healthy = min(Healthy) by Host;
+let agentHealthPct = toscalar(hosts | summarize round(100.0 * countif(Healthy == 1) / count(), 1));
+let silentSources = toscalar(
+    _GetWatchlist('ContractedSources') | project DataType = tostring(TableName)
+    | join kind=leftanti (Usage | where TimeGenerated > ago(24h) and Quantity > 0 | distinct DataType) on DataType
+    | count);
+let connectorIssues = toscalar(
+    SentinelHealth | where TimeGenerated > ago(1d) and SentinelResourceType == "Data connector"
+    | summarize arg_max(TimeGenerated, Status) by SentinelResourceName
+    | where Status != "Success" | count);
+let ingestionDrops = toscalar(
+    Usage | where TimeGenerated > ago(8d)
+    | summarize Today = sumif(Quantity, TimeGenerated > ago(1d)), Base = sumif(Quantity, TimeGenerated <= ago(1d)) / 7.0 by DataType
+    | where Base > 1 and Today < Base * 0.5 | count);
+let failingRules = toscalar(
+    SentinelHealth | where TimeGenerated > ago(1d) and SentinelResourceType has "Analytic"
+    | summarize arg_max(TimeGenerated, Status) by SentinelResourceName
+    | where Status != "Success" | count);
+let escSlope = toscalar(
+    SecurityIncident | where CreatedTime > ago(84d)
+    | summarize arg_max(TimeGenerated, *) by IncidentNumber
+    | extend Escalated = tostring(Labels) has escalationTag
+    | make-series Inc = count(), Esc = countif(Escalated) on CreatedTime from startofweek(ago(84d)) to now() step 7d
+    | extend Fit = series_fit_line_dynamic(series_divide(Esc, Inc))
+    | project round(todouble(Fit.slope) * 100, 2));
+let sipOverdue = toscalar(
+    _GetWatchlist('SIP')
+    | where isnull(todatetime(ClosedDate)) and todatetime(DueDate) < now() | count);
+let csatBreaches = toscalar(
+    _GetWatchlist('CSAT')
+    | extend Date = todatetime(SurveyDate), Actioned = todatetime(ActionedDate)
+    | where toint(Score) < csatThreshold
+    | where (isnull(Actioned) and now() - Date > 48h) or (Actioned - Date > 48h)
+    | count);
+union
+    (print Order = 1, Indicator = "Agent health % (target 97)", Value = agentHealthPct,
+           RAG = case(agentHealthPct >= 97, "Green", agentHealthPct >= 93, "Amber", "Red")),
+    (print Order = 2, Indicator = "Silent contracted sources", Value = todouble(silentSources),
+           RAG = iff(silentSources == 0, "Green", "Red")),
+    (print Order = 3, Indicator = "Connectors not healthy", Value = todouble(connectorIssues),
+           RAG = case(connectorIssues == 0, "Green", connectorIssues <= 1, "Amber", "Red")),
+    (print Order = 4, Indicator = "Tables with >50% ingestion drop", Value = todouble(ingestionDrops),
+           RAG = case(ingestionDrops == 0, "Green", ingestionDrops <= 2, "Amber", "Red")),
+    (print Order = 5, Indicator = "Analytics rules failing", Value = todouble(failingRules),
+           RAG = case(failingRules == 0, "Green", failingRules <= 3, "Amber", "Red")),
+    (print Order = 6, Indicator = "Escalation rate slope (pp/week)", Value = escSlope,
+           RAG = case(escSlope <= 0.5, "Green", escSlope <= 1.5, "Amber", "Red")),
+    (print Order = 7, Indicator = "SIP actions overdue", Value = todouble(sipOverdue),
+           RAG = case(sipOverdue == 0, "Green", sipOverdue <= 2, "Amber", "Red")),
+    (print Order = 8, Indicator = "CSAT detractors not actioned in 48h", Value = todouble(csatBreaches),
+           RAG = iff(csatBreaches == 0, "Green", "Red"))
+| order by Order asc
+| project-away Order;
