@@ -1,0 +1,206 @@
+// =====================================================================
+// TAM EWI — every query in the Sentinel workbook, in tab order.
+// Prerequisite: the saved functions from functions/ are deployed to the workspace.
+// {Indicator} is the workbook's History-tab parameter; replace it with an ID (e.g. A01) to run here.
+// =====================================================================
+
+// =====================================================================
+// TAB: Morning view
+// =====================================================================
+
+// ---- Headline
+TAM_EWI()
+| summarize Red = countif(State == "Red"), Amber = countif(State == "Amber"), Changed = countif(StateChanged),
+            Gaps = countif(State == "No data"), Account = take_any(Account), Evaluated = max(EvaluatedAt)
+| project Headline = strcat(Account, " — ", Red, " red · ", Amber, " amber · ", Changed, " changed since last week · ",
+                            Gaps, " with no data · evaluated ", format_datetime(Evaluated, "yyyy-MM-dd HH:mm"), " UTC")
+
+
+// ---- Key indicators
+TAM_EWI()
+| where IndicatorId in ("A01", "A02", "A06", "A08.P1", "B04", "B05")
+| extend Tile = case(IndicatorId == "A01", "Agent health", IndicatorId == "A02", "Sources reporting",
+                     IndicatorId == "A06", "Tuning backlog", IndicatorId == "A08.P1", "MTTR (P1)",
+                     IndicatorId == "B04", "CSAT (rolling)", "Entitlement used"),
+         Ord = case(IndicatorId == "A01", 1, IndicatorId == "A02", 2, IndicatorId == "A06", 3, IndicatorId == "A08.P1", 4, IndicatorId == "B04", 5, 6)
+| project Tile, Display, Context, State, Ord
+
+
+// ---- Indicator state by family
+TAM_EWI()
+| summarize Indicators = count() by Family, FamilyOrder, State
+| order by FamilyOrder asc
+| project Family, State, Indicators
+
+
+// ---- Six-month trend — the shape matters more than the level
+TAM_Trend()
+| where IndicatorId in ("A01", "A07")
+| project Month, Indicator, Value
+| order by Month asc
+
+
+// ---- Needs a move today
+TAM_EWI()
+| where State in ("Red", "Amber")
+| order by StateRank desc, FamilyOrder asc, IndicatorId asc
+| project State, Indicator, Reason, FirstMove, Was = PrevState
+
+
+// =====================================================================
+// TAB: Portfolio
+// =====================================================================
+
+// ---- Worst state by family — latest snapshot per account
+let lastSnap = TAM_EWISnapshot_CL
+    | where TimeGenerated > ago(2d)
+    | summarize arg_max(TimeGenerated, State, Family, StateChanged) by Account, IndicatorId;
+let counts = lastSnap
+    | summarize Red = countif(State == "Red"), Amber = countif(State == "Amber"), NoData = countif(State == "No data"),
+                Changed = countif(StateChanged), Snapshot = max(TimeGenerated) by Account;
+lastSnap
+| extend Rank = case(State == "Red", 3, State == "Amber", 2, State == "Green", 1, 0)
+| summarize Worst = max(Rank) by Account, Family
+| extend WorstState = case(Worst == 3, "Red", Worst == 2, "Amber", Worst == 1, "Green", "No data")
+| project Account, Family, WorstState
+| evaluate pivot(Family, take_any(WorstState))
+| join kind=inner counts on Account
+| project Account,
+          Telemetry = tostring(column_ifexists("Telemetry", "")), Detection = tostring(column_ifexists("Detection", "")),
+          Engagement = tostring(column_ifexists("Engagement", "")), Commercial = tostring(column_ifexists("Commercial", "")),
+          Governance = tostring(column_ifexists("Governance", "")), Red, Amber, NoData, Changed, Snapshot
+| order by Red desc, Amber desc
+
+
+// ---- Accounts with no snapshot in 26 hours
+TAM_EWISnapshot_CL
+| where TimeGenerated > ago(30d)
+| summarize LastSnapshot = max(TimeGenerated) by Account
+| where LastSnapshot < ago(26h)
+| project Account, LastSnapshot, HoursSince = round((now() - LastSnapshot) / 1h, 0)
+
+
+// ---- Changed since last week
+TAM_EWISnapshot_CL
+| where TimeGenerated > ago(7d) and StateChanged == true
+| summarize arg_max(TimeGenerated, *) by Account, IndicatorId
+| project Changed = TimeGenerated, Account, Indicator, Was = PrevState, State, Reason, FirstMove
+| order by Changed desc
+
+
+// =====================================================================
+// TAB: Watchlist A
+// =====================================================================
+
+// ---- Watchlist A — every indicator, this account
+TAM_EWI()
+| where Watchlist == "A"
+| order by FamilyOrder asc, IndicatorId asc
+| project IndicatorId, Indicator, Display, Context, State, Was = PrevState, AmberRule, RedRule, Reason, FirstMove, Source
+
+
+// =====================================================================
+// TAB: Watchlist B
+// =====================================================================
+
+// ---- Watchlist B and governance — every indicator, this account
+TAM_EWI()
+| where Watchlist in ("B", "Governance")
+| order by FamilyOrder asc, IndicatorId asc
+| project IndicatorId, Indicator, Display, Context, State, Was = PrevState, AmberRule, RedRule, Reason, FirstMove, Source
+
+
+// =====================================================================
+// TAB: Telemetry detail
+// =====================================================================
+
+// ---- EDR devices silent, impaired or never seen (A01)
+TAM_D_Devices()
+
+
+// ---- Contracted log sources — hours quiet (A02)
+TAM_D_Sources()
+
+
+// ---- Billable ingest per day, top 8 tables (A03)
+let top8 = Usage | where TimeGenerated > ago(30d) and IsBillable | summarize GB = sum(Quantity) by DataType | top 8 by GB | project DataType;
+Usage
+| where TimeGenerated > ago(30d) and IsBillable and DataType in (top8)
+| summarize GB = round(sum(Quantity) / 1024.0, 2) by DataType, Day = bin(TimeGenerated, 1d)
+| order by Day asc
+
+
+// ---- Ingest drift per table vs 30-day baseline (A03)
+TAM_D_Ingest()
+
+
+// ---- Ingestion, parsing and rule-run failures in 24h (A04)
+union isfuzzy=true
+    (_LogOperation | where TimeGenerated > ago(24h) and Level in ("Error", "Warning")
+     | project TimeGenerated, Kind = strcat("Ingestion: ", Category), Detail = strcat(Operation, " — ", Detail)),
+    (Syslog | where TimeGenerated > ago(24h) and (SyslogMessage has "CEF:" or SyslogMessage has "LEEF:")
+     | summarize TimeGenerated = max(TimeGenerated), Events = count() by Computer
+     | project TimeGenerated, Kind = "Parsing: CEF/LEEF unparsed in Syslog", Detail = strcat(Events, " events via ", Computer)),
+    (SentinelHealth | where TimeGenerated > ago(24h) and SentinelResourceType has "Analytic" and Status != "Success"
+     | project TimeGenerated, Kind = "Detection: rule run failed", Detail = strcat(SentinelResourceName, " — ", Description))
+| summarize LastSeen = max(TimeGenerated), Occurrences = count() by Kind, Detail
+| order by LastSeen desc
+
+
+// =====================================================================
+// TAB: Detection detail
+// =====================================================================
+
+// ---- Threat profile coverage (A05)
+TAM_D_Coverage()
+
+
+// ---- Top 10 noise generators, 30 days (A06 tuning input)
+TAM_D_Noise()
+| project Title, FalsePositive, Benign, TruePositive, NoisePct
+
+
+// ---- True-positive rate by month (A07)
+SecurityIncident
+| where ClosedTime >= startofmonth(now(), -5)
+| summarize arg_max(TimeGenerated, Status, Classification, ClosedTime) by IncidentNumber
+| where Status == "Closed" and Classification in ("TruePositive", "FalsePositive", "BenignPositive")
+| summarize TPPct = round(100.0 * countif(Classification == "TruePositive") / count(), 1) by Month = startofmonth(ClosedTime)
+| order by Month asc
+
+
+// ---- Median time to respond by priority, minutes (A08)
+TAM_D_Response()
+| project Month, Priority, MedianRespondMin
+| order by Month asc
+
+
+// ---- SLA attainment by month and priority (A08)
+TAM_D_Response()
+| project Month = format_datetime(Month, "yyyy-MM"), Priority, SLA, Incidents, MedianDetectMin, MedianRespondMin, P90RespondMin, SLAAttainPct
+| order by Month desc, Priority asc
+
+
+// ---- Critical exposures open past the amber age (A11)
+TAM_D_Vulns()
+
+
+// =====================================================================
+// TAB: History
+// =====================================================================
+
+// ---- Daily value — {Indicator:label}
+TAM_History()
+| where IndicatorId == "{Indicator}" and TimeGenerated > ago(180d)
+| summarize Value = avg(Value) by Day = bin(TimeGenerated, 1d)
+| order by Day asc
+
+
+// ---- State changes — {Indicator:label}
+TAM_History()
+| where IndicatorId == "{Indicator}" and TimeGenerated > ago(180d)
+| order by TimeGenerated asc
+| extend Prev = prev(State)
+| where isempty(Prev) or State != Prev
+| project Date = startofday(TimeGenerated), State, Was = Prev, Value
+| order by Date desc

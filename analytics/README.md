@@ -141,10 +141,21 @@ Both are straightforward follow-ons if those tables are available.
 
 ## Also in this folder
 
-- `workbooks/tam-account-health.kql` — a separate pack of account-health
-  queries for a Microsoft Sentinel workbook (telemetry and connector health,
-  detection coverage vs a client threat profile, noise/escalation trends,
-  governance trackers and an EWI RAG board). One query per workbook step, with
-  the suggested visualization noted inline. Unlike the six detection analytics
-  above, it does require Sentinel auditing and health monitoring to be enabled
-  and several watchlists; prerequisites are listed in the header of the file.
+`workbooks/` holds TAM account-health material rather than detections. Unlike
+the six analytics above, these need Sentinel auditing and health monitoring
+enabled plus several watchlists; prerequisites are listed in the header of each
+file.
+
+- `workbooks/tam-account-health.kql` — standalone account-health queries
+  (telemetry and connector health, detection coverage vs a client threat
+  profile, noise/escalation trends, governance trackers and an EWI RAG board),
+  one query per workbook step with the suggested visualization noted inline.
+- `workbooks/TAM-EWI-workbook.json` — the TAM EWI Sentinel workbook itself
+  (Morning view, Portfolio, Watchlist A, Watchlist B, Telemetry detail,
+  Detection detail, History). Import via Sentinel > Workbooks > Add workbook >
+  Advanced editor.
+- `workbooks/workbook-queries.kql` — every query in that workbook, in tab
+  order, for running and editing outside the workbook. It calls the saved
+  functions (`TAM_EWI()`, `TAM_Trend()`, `TAM_D_*()`, `TAM_History()`), which
+  must be deployed to the workspace first; the Portfolio tab additionally
+  reads the `TAM_EWISnapshot_CL` table written by the daily snapshot Logic App.

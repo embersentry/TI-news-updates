@@ -1,0 +1,1438 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "## TAM account health \u2014 early warning indicators\nEvery value is computed by the TAM saved functions in the selected workspace (`TAM_EWI()`, `TAM_Trend()`, `TAM_D_*()`). Thresholds come from the account's `TAM_EWIConfig` watchlist. Nothing here is typed by hand."
+      },
+      "name": "intro"
+    },
+    {
+      "type": 9,
+      "name": "parameters",
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "style": "pills",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "parameters": [
+          {
+            "id": "54b53789-b263-43e3-8fed-066d618473a3",
+            "version": "KqlParameterItem/1.0",
+            "name": "Subscription",
+            "type": 6,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "summarize by subscriptionId\n| project value = strcat('/subscriptions/', subscriptionId), label = subscriptionId",
+            "crossComponentResources": [
+              "value::selected"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "includeAll": false,
+              "showDefault": false
+            },
+            "defaultValue": "value::all",
+            "queryType": 1,
+            "resourceType": "microsoft.resourcegraph/resources"
+          },
+          {
+            "id": "4b0b47a6-1517-4ae6-88b9-22cd8524a5d6",
+            "version": "KqlParameterItem/1.0",
+            "name": "Workspace",
+            "label": "Account workspace",
+            "type": 5,
+            "isRequired": true,
+            "query": "resources\n| where type =~ 'microsoft.operationalinsights/workspaces'\n| project id",
+            "crossComponentResources": [
+              "{Subscription}"
+            ],
+            "typeSettings": {
+              "resourceTypeFilter": {
+                "microsoft.operationalinsights/workspaces": true
+              },
+              "additionalResourceOptions": [
+                "value::1"
+              ],
+              "showDefault": false
+            },
+            "defaultValue": "value::1",
+            "queryType": 1,
+            "resourceType": "microsoft.resourcegraph/resources"
+          },
+          {
+            "id": "70732009-f2fe-4651-b53e-ca4f1583374b",
+            "version": "KqlParameterItem/1.0",
+            "name": "Workspaces",
+            "label": "Portfolio workspaces",
+            "type": 5,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "resources\n| where type =~ 'microsoft.operationalinsights/workspaces'\n| project id",
+            "crossComponentResources": [
+              "{Subscription}"
+            ],
+            "typeSettings": {
+              "resourceTypeFilter": {
+                "microsoft.operationalinsights/workspaces": true
+              },
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "showDefault": false
+            },
+            "defaultValue": "value::all",
+            "queryType": 1,
+            "resourceType": "microsoft.resourcegraph/resources"
+          }
+        ]
+      }
+    },
+    {
+      "type": 11,
+      "name": "tabs",
+      "content": {
+        "version": "LinkItem/1.0",
+        "style": "tabs",
+        "links": [
+          {
+            "id": "55c79e20-c7c2-47dd-b4b3-1112875e8f8e",
+            "cellValue": "Tab",
+            "linkTarget": "parameter",
+            "linkLabel": "Morning view",
+            "subTarget": "morning",
+            "style": "link"
+          },
+          {
+            "id": "6f88a913-a20f-41e4-94d2-e1d1be876c84",
+            "cellValue": "Tab",
+            "linkTarget": "parameter",
+            "linkLabel": "Portfolio",
+            "subTarget": "portfolio",
+            "style": "link"
+          },
+          {
+            "id": "0ed4a3b6-0de3-49be-9535-be9c9e2dfa78",
+            "cellValue": "Tab",
+            "linkTarget": "parameter",
+            "linkLabel": "Watchlist A",
+            "subTarget": "boardA",
+            "style": "link"
+          },
+          {
+            "id": "e7ce1578-dea8-470e-aead-f08d358f0e0b",
+            "cellValue": "Tab",
+            "linkTarget": "parameter",
+            "linkLabel": "Watchlist B",
+            "subTarget": "boardB",
+            "style": "link"
+          },
+          {
+            "id": "6a597448-06b1-465e-817b-e2e8d12c5964",
+            "cellValue": "Tab",
+            "linkTarget": "parameter",
+            "linkLabel": "Telemetry detail",
+            "subTarget": "telemetry",
+            "style": "link"
+          },
+          {
+            "id": "d109215e-6354-42f4-b99e-712db80ee22b",
+            "cellValue": "Tab",
+            "linkTarget": "parameter",
+            "linkLabel": "Detection detail",
+            "subTarget": "detection",
+            "style": "link"
+          },
+          {
+            "id": "74f98cf8-86e1-4683-98c5-f5f36de9dcd8",
+            "cellValue": "Tab",
+            "linkTarget": "parameter",
+            "linkLabel": "History",
+            "subTarget": "history",
+            "style": "link"
+          }
+        ]
+      }
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "TAM_EWI()\n| summarize Red = countif(State == \"Red\"), Amber = countif(State == \"Amber\"), Changed = countif(StateChanged),\n            Gaps = countif(State == \"No data\"), Account = take_any(Account), Evaluated = max(EvaluatedAt)\n| project Headline = strcat(Account, \" \u2014 \", Red, \" red \u00b7 \", Amber, \" amber \u00b7 \", Changed, \" changed since last week \u00b7 \",\n                            Gaps, \" with no data \u00b7 evaluated \", format_datetime(Evaluated, \"yyyy-MM-dd HH:mm\"), \" UTC\")",
+              "size": 4,
+              "title": "",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Headline",
+                    "formatter": 1
+                  }
+                ]
+              }
+            },
+            "name": "headline"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "TAM_EWI()\n| where IndicatorId in (\"A01\", \"A02\", \"A06\", \"A08.P1\", \"B04\", \"B05\")\n| extend Tile = case(IndicatorId == \"A01\", \"Agent health\", IndicatorId == \"A02\", \"Sources reporting\",\n                     IndicatorId == \"A06\", \"Tuning backlog\", IndicatorId == \"A08.P1\", \"MTTR (P1)\",\n                     IndicatorId == \"B04\", \"CSAT (rolling)\", \"Entitlement used\"),\n         Ord = case(IndicatorId == \"A01\", 1, IndicatorId == \"A02\", 2, IndicatorId == \"A06\", 3, IndicatorId == \"A08.P1\", 4, IndicatorId == \"B04\", 5, 6)\n| project Tile, Display, Context, State, Ord",
+              "size": 4,
+              "title": "Key indicators",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "tiles",
+              "tileSettings": {
+                "titleContent": {
+                  "columnMatch": "Tile",
+                  "formatter": 1
+                },
+                "leftContent": {
+                  "columnMatch": "Display",
+                  "formatter": 1,
+                  "formatOptions": {
+                    "customColumnWidthSetting": "20ch"
+                  }
+                },
+                "secondaryContent": {
+                  "columnMatch": "Context",
+                  "formatter": 1
+                },
+                "topContent": {
+                  "columnMatch": "State",
+                  "formatter": 18,
+                  "formatOptions": {
+                    "thresholdsOptions": "colors",
+                    "thresholdsGrid": [
+                      {
+                        "operator": "==",
+                        "thresholdValue": "Red",
+                        "representation": "redBright",
+                        "text": "{0}{1}"
+                      },
+                      {
+                        "operator": "==",
+                        "thresholdValue": "Amber",
+                        "representation": "orange",
+                        "text": "{0}{1}"
+                      },
+                      {
+                        "operator": "==",
+                        "thresholdValue": "Green",
+                        "representation": "green",
+                        "text": "{0}{1}"
+                      },
+                      {
+                        "operator": "Default",
+                        "thresholdValue": null,
+                        "representation": "gray",
+                        "text": "{0}{1}"
+                      }
+                    ]
+                  }
+                },
+                "showBorder": true,
+                "sortCriteriaField": "Ord",
+                "sortOrderField": 1,
+                "size": "auto"
+              }
+            },
+            "name": "tiles"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "TAM_EWI()\n| summarize Indicators = count() by Family, FamilyOrder, State\n| order by FamilyOrder asc\n| project Family, State, Indicators",
+              "size": 0,
+              "title": "Indicator state by family",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "barchart",
+              "chartSettings": {
+                "xAxis": "Family",
+                "yAxis": [
+                  "Indicators"
+                ],
+                "group": "State",
+                "createOtherGroup": 0,
+                "showLegend": true,
+                "seriesLabelSettings": [
+                  {
+                    "seriesName": "Red",
+                    "color": "redBright"
+                  },
+                  {
+                    "seriesName": "Amber",
+                    "color": "orange"
+                  },
+                  {
+                    "seriesName": "Green",
+                    "color": "green"
+                  },
+                  {
+                    "seriesName": "No data",
+                    "color": "gray"
+                  }
+                ]
+              }
+            },
+            "name": "family",
+            "customWidth": "33"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "TAM_Trend()\n| where IndicatorId in (\"A01\", \"A07\")\n| project Month, Indicator, Value\n| order by Month asc",
+              "size": 0,
+              "title": "Six-month trend \u2014 the shape matters more than the level",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "linechart",
+              "chartSettings": {
+                "xAxis": "Month",
+                "yAxis": [
+                  "Value"
+                ],
+                "group": "Indicator",
+                "showLegend": true,
+                "ySettings": {
+                  "min": 50,
+                  "max": 100
+                }
+              }
+            },
+            "name": "trend",
+            "customWidth": "33"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "TAM_EWI()\n| where State in (\"Red\", \"Amber\")\n| order by StateRank desc, FamilyOrder asc, IndicatorId asc\n| project State, Indicator, Reason, FirstMove, Was = PrevState",
+              "size": 0,
+              "title": "Needs a move today",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "State",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "colors",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Red",
+                          "representation": "redBright",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Amber",
+                          "representation": "orange",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Green",
+                          "representation": "green",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "gray",
+                          "text": "{0}{1}"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "columnMatch": "Was",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "colors",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Red",
+                          "representation": "redBright",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Amber",
+                          "representation": "orange",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Green",
+                          "representation": "green",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "gray",
+                          "text": "{0}{1}"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "filter": true,
+                "rowLimit": 12
+              }
+            },
+            "name": "moves",
+            "customWidth": "34"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "Tab",
+        "comparison": "isEqualTo",
+        "value": "morning"
+      },
+      "name": "group - morning"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "Portfolio reads the daily snapshot table in every selected workspace, so it needs the snapshot Logic App running in each. Pick the workspaces with **Portfolio workspaces**."
+            },
+            "name": "portfolio-note"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let lastSnap = TAM_EWISnapshot_CL\n    | where TimeGenerated > ago(2d)\n    | summarize arg_max(TimeGenerated, State, Family, StateChanged) by Account, IndicatorId;\nlet counts = lastSnap\n    | summarize Red = countif(State == \"Red\"), Amber = countif(State == \"Amber\"), NoData = countif(State == \"No data\"),\n                Changed = countif(StateChanged), Snapshot = max(TimeGenerated) by Account;\nlastSnap\n| extend Rank = case(State == \"Red\", 3, State == \"Amber\", 2, State == \"Green\", 1, 0)\n| summarize Worst = max(Rank) by Account, Family\n| extend WorstState = case(Worst == 3, \"Red\", Worst == 2, \"Amber\", Worst == 1, \"Green\", \"No data\")\n| project Account, Family, WorstState\n| evaluate pivot(Family, take_any(WorstState))\n| join kind=inner counts on Account\n| project Account,\n          Telemetry = tostring(column_ifexists(\"Telemetry\", \"\")), Detection = tostring(column_ifexists(\"Detection\", \"\")),\n          Engagement = tostring(column_ifexists(\"Engagement\", \"\")), Commercial = tostring(column_ifexists(\"Commercial\", \"\")),\n          Governance = tostring(column_ifexists(\"Governance\", \"\")), Red, Amber, NoData, Changed, Snapshot\n| order by Red desc, Amber desc",
+              "size": 0,
+              "title": "Worst state by family \u2014 latest snapshot per account",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Telemetry|Detection|Engagement|Commercial|Governance",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "colors",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Red",
+                          "representation": "redBright",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Amber",
+                          "representation": "orange",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Green",
+                          "representation": "green",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "gray",
+                          "text": "{0}{1}"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "columnMatch": "Red",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "whiteRed"
+                    }
+                  },
+                  {
+                    "columnMatch": "Amber",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "whiteOrange"
+                    }
+                  }
+                ],
+                "filter": true
+              }
+            },
+            "name": "portfolio-matrix"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "TAM_EWISnapshot_CL\n| where TimeGenerated > ago(30d)\n| summarize LastSnapshot = max(TimeGenerated) by Account\n| where LastSnapshot < ago(26h)\n| project Account, LastSnapshot, HoursSince = round((now() - LastSnapshot) / 1h, 0)",
+              "size": 0,
+              "title": "Accounts with no snapshot in 26 hours",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [],
+                "filter": true
+              }
+            },
+            "name": "stale",
+            "customWidth": "40"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "TAM_EWISnapshot_CL\n| where TimeGenerated > ago(7d) and StateChanged == true\n| summarize arg_max(TimeGenerated, *) by Account, IndicatorId\n| project Changed = TimeGenerated, Account, Indicator, Was = PrevState, State, Reason, FirstMove\n| order by Changed desc",
+              "size": 0,
+              "title": "Changed since last week",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "State",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "colors",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Red",
+                          "representation": "redBright",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Amber",
+                          "representation": "orange",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Green",
+                          "representation": "green",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "gray",
+                          "text": "{0}{1}"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "columnMatch": "Was",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "colors",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Red",
+                          "representation": "redBright",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Amber",
+                          "representation": "orange",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Green",
+                          "representation": "green",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "gray",
+                          "text": "{0}{1}"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "filter": true
+              }
+            },
+            "name": "changes",
+            "customWidth": "60"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "Tab",
+        "comparison": "isEqualTo",
+        "value": "portfolio"
+      },
+      "name": "group - portfolio"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "TAM_EWI()\n| where Watchlist == \"A\"\n| order by FamilyOrder asc, IndicatorId asc\n| project IndicatorId, Indicator, Display, Context, State, Was = PrevState, AmberRule, RedRule, Reason, FirstMove, Source",
+              "size": 0,
+              "title": "Watchlist A \u2014 every indicator, this account",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "State",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "colors",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Red",
+                          "representation": "redBright",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Amber",
+                          "representation": "orange",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Green",
+                          "representation": "green",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "gray",
+                          "text": "{0}{1}"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "columnMatch": "Was",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "colors",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Red",
+                          "representation": "redBright",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Amber",
+                          "representation": "orange",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Green",
+                          "representation": "green",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "gray",
+                          "text": "{0}{1}"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "columnMatch": "Source",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Reason|FirstMove",
+                    "formatter": 1,
+                    "formatOptions": {
+                      "customColumnWidthSetting": "40ch"
+                    }
+                  }
+                ],
+                "filter": true,
+                "rowLimit": 50
+              }
+            },
+            "name": "board-A"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "Tab",
+        "comparison": "isEqualTo",
+        "value": "boardA"
+      },
+      "name": "group - boardA"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "TAM_EWI()\n| where Watchlist in (\"B\", \"Governance\")\n| order by FamilyOrder asc, IndicatorId asc\n| project IndicatorId, Indicator, Display, Context, State, Was = PrevState, AmberRule, RedRule, Reason, FirstMove, Source",
+              "size": 0,
+              "title": "Watchlist B and governance \u2014 every indicator, this account",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "State",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "colors",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Red",
+                          "representation": "redBright",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Amber",
+                          "representation": "orange",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Green",
+                          "representation": "green",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "gray",
+                          "text": "{0}{1}"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "columnMatch": "Was",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "colors",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Red",
+                          "representation": "redBright",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Amber",
+                          "representation": "orange",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Green",
+                          "representation": "green",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "gray",
+                          "text": "{0}{1}"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "columnMatch": "Source",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Reason|FirstMove",
+                    "formatter": 1,
+                    "formatOptions": {
+                      "customColumnWidthSetting": "40ch"
+                    }
+                  }
+                ],
+                "filter": true,
+                "rowLimit": 50
+              }
+            },
+            "name": "board-B"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "Tab",
+        "comparison": "isEqualTo",
+        "value": "boardB"
+      },
+      "name": "group - boardB"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "TAM_D_Devices()",
+              "size": 0,
+              "title": "EDR devices silent, impaired or never seen (A01)",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Issue",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "colors",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "startsWith",
+                          "thresholdValue": "Silent",
+                          "representation": "redBright",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "startsWith",
+                          "thresholdValue": "In scope",
+                          "representation": "redBright",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "orange",
+                          "text": "{0}{1}"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "filter": true,
+                "rowLimit": 500
+              }
+            },
+            "name": "devices",
+            "customWidth": "50"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "TAM_D_Sources()",
+              "size": 0,
+              "title": "Contracted log sources \u2014 hours quiet (A02)",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "QuietHours",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 72,
+                      "palette": "greenRed"
+                    }
+                  }
+                ],
+                "filter": true
+              }
+            },
+            "name": "sources",
+            "customWidth": "50"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let top8 = Usage | where TimeGenerated > ago(30d) and IsBillable | summarize GB = sum(Quantity) by DataType | top 8 by GB | project DataType;\nUsage\n| where TimeGenerated > ago(30d) and IsBillable and DataType in (top8)\n| summarize GB = round(sum(Quantity) / 1024.0, 2) by DataType, Day = bin(TimeGenerated, 1d)\n| order by Day asc",
+              "size": 0,
+              "title": "Billable ingest per day, top 8 tables (A03)",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "timechart",
+              "chartSettings": {
+                "xAxis": "Day",
+                "yAxis": [
+                  "GB"
+                ],
+                "group": "DataType",
+                "showLegend": true
+              }
+            },
+            "name": "ingest-chart",
+            "customWidth": "50"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "TAM_D_Ingest()",
+              "size": 0,
+              "title": "Ingest drift per table vs 30-day baseline (A03)",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "DriftPct",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": -40,
+                      "max": 40,
+                      "palette": "redGreenRed"
+                    }
+                  }
+                ],
+                "filter": true
+              }
+            },
+            "name": "ingest-drift",
+            "customWidth": "50"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "union isfuzzy=true\n    (_LogOperation | where TimeGenerated > ago(24h) and Level in (\"Error\", \"Warning\")\n     | project TimeGenerated, Kind = strcat(\"Ingestion: \", Category), Detail = strcat(Operation, \" \u2014 \", Detail)),\n    (Syslog | where TimeGenerated > ago(24h) and (SyslogMessage has \"CEF:\" or SyslogMessage has \"LEEF:\")\n     | summarize TimeGenerated = max(TimeGenerated), Events = count() by Computer\n     | project TimeGenerated, Kind = \"Parsing: CEF/LEEF unparsed in Syslog\", Detail = strcat(Events, \" events via \", Computer)),\n    (SentinelHealth | where TimeGenerated > ago(24h) and SentinelResourceType has \"Analytic\" and Status != \"Success\"\n     | project TimeGenerated, Kind = \"Detection: rule run failed\", Detail = strcat(SentinelResourceName, \" \u2014 \", Description))\n| summarize LastSeen = max(TimeGenerated), Occurrences = count() by Kind, Detail\n| order by LastSeen desc",
+              "size": 0,
+              "title": "Ingestion, parsing and rule-run failures in 24h (A04)",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [],
+                "filter": true,
+                "rowLimit": 200
+              }
+            },
+            "name": "failures"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "Tab",
+        "comparison": "isEqualTo",
+        "value": "telemetry"
+      },
+      "name": "group - telemetry"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "TAM_D_Coverage()",
+              "size": 0,
+              "title": "Threat profile coverage (A05)",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Coverage",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "colors",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Gap",
+                          "representation": "redBright",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Proven",
+                          "representation": "green",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "orange",
+                          "text": "{0}{1}"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "filter": true,
+                "rowLimit": 200
+              }
+            },
+            "name": "coverage",
+            "customWidth": "50"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "TAM_D_Noise()\n| project Title, FalsePositive, Benign, TruePositive, NoisePct",
+              "size": 0,
+              "title": "Top 10 noise generators, 30 days (A06 tuning input)",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "barchart",
+              "chartSettings": {
+                "xAxis": "Title",
+                "yAxis": [
+                  "FalsePositive",
+                  "Benign",
+                  "TruePositive"
+                ],
+                "showLegend": true,
+                "seriesLabelSettings": [
+                  {
+                    "seriesName": "FalsePositive",
+                    "color": "redBright"
+                  },
+                  {
+                    "seriesName": "Benign",
+                    "color": "orange"
+                  },
+                  {
+                    "seriesName": "TruePositive",
+                    "color": "green"
+                  }
+                ]
+              }
+            },
+            "name": "noise",
+            "customWidth": "50"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "SecurityIncident\n| where ClosedTime >= startofmonth(now(), -5)\n| summarize arg_max(TimeGenerated, Status, Classification, ClosedTime) by IncidentNumber\n| where Status == \"Closed\" and Classification in (\"TruePositive\", \"FalsePositive\", \"BenignPositive\")\n| summarize TPPct = round(100.0 * countif(Classification == \"TruePositive\") / count(), 1) by Month = startofmonth(ClosedTime)\n| order by Month asc",
+              "size": 0,
+              "title": "True-positive rate by month (A07)",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "linechart",
+              "chartSettings": {
+                "xAxis": "Month",
+                "yAxis": [
+                  "TPPct"
+                ],
+                "ySettings": {
+                  "min": 0,
+                  "max": 100
+                }
+              }
+            },
+            "name": "tp-trend",
+            "customWidth": "50"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "TAM_D_Response()\n| project Month, Priority, MedianRespondMin\n| order by Month asc",
+              "size": 0,
+              "title": "Median time to respond by priority, minutes (A08)",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "linechart",
+              "chartSettings": {
+                "xAxis": "Month",
+                "yAxis": [
+                  "MedianRespondMin"
+                ],
+                "group": "Priority",
+                "showLegend": true
+              }
+            },
+            "name": "mttr-trend",
+            "customWidth": "50"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "TAM_D_Response()\n| project Month = format_datetime(Month, \"yyyy-MM\"), Priority, SLA, Incidents, MedianDetectMin, MedianRespondMin, P90RespondMin, SLAAttainPct\n| order by Month desc, Priority asc",
+              "size": 0,
+              "title": "SLA attainment by month and priority (A08)",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "SLAAttainPct",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "colors",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "<",
+                          "thresholdValue": "95",
+                          "representation": "redBright",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "<",
+                          "thresholdValue": "97",
+                          "representation": "orange",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "green",
+                          "text": "{0}{1}"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "filter": true
+              }
+            },
+            "name": "sla",
+            "customWidth": "50"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "TAM_D_Vulns()",
+              "size": 0,
+              "title": "Critical exposures open past the amber age (A11)",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "AgeDays",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 30,
+                      "max": 90,
+                      "palette": "orangeRed"
+                    }
+                  }
+                ],
+                "filter": true,
+                "rowLimit": 500
+              }
+            },
+            "name": "vulns",
+            "customWidth": "50"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "Tab",
+        "comparison": "isEqualTo",
+        "value": "detection"
+      },
+      "name": "group - detection"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 9,
+            "name": "history-params",
+            "content": {
+              "version": "KqlParameterItem/1.0",
+              "style": "pills",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "parameters": [
+                {
+                  "id": "5ff4f0e9-18eb-464f-8228-736f2026f328",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "Indicator",
+                  "type": 2,
+                  "isRequired": true,
+                  "query": "TAM_EWI()\n| order by FamilyOrder asc, IndicatorId asc\n| project value = IndicatorId, label = strcat(IndicatorId, \" \u00b7 \", Indicator)",
+                  "crossComponentResources": [
+                    "{Workspace}"
+                  ],
+                  "typeSettings": {
+                    "additionalResourceOptions": [
+                      "value::1"
+                    ],
+                    "showDefault": false
+                  },
+                  "defaultValue": "value::1",
+                  "queryType": 0,
+                  "resourceType": "microsoft.operationalinsights/workspaces"
+                }
+              ]
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "TAM_History()\n| where IndicatorId == \"{Indicator}\" and TimeGenerated > ago(180d)\n| summarize Value = avg(Value) by Day = bin(TimeGenerated, 1d)\n| order by Day asc",
+              "size": 0,
+              "title": "Daily value \u2014 {Indicator:label}",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "timechart",
+              "chartSettings": {
+                "xAxis": "Day",
+                "yAxis": [
+                  "Value"
+                ]
+              }
+            },
+            "name": "history-value",
+            "customWidth": "60"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "TAM_History()\n| where IndicatorId == \"{Indicator}\" and TimeGenerated > ago(180d)\n| order by TimeGenerated asc\n| extend Prev = prev(State)\n| where isempty(Prev) or State != Prev\n| project Date = startofday(TimeGenerated), State, Was = Prev, Value\n| order by Date desc",
+              "size": 0,
+              "title": "State changes \u2014 {Indicator:label}",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "State",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "colors",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Red",
+                          "representation": "redBright",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Amber",
+                          "representation": "orange",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Green",
+                          "representation": "green",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "gray",
+                          "text": "{0}{1}"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "columnMatch": "Was",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "colors",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Red",
+                          "representation": "redBright",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Amber",
+                          "representation": "orange",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Green",
+                          "representation": "green",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "gray",
+                          "text": "{0}{1}"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "filter": true
+              }
+            },
+            "name": "history-state",
+            "customWidth": "40"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "Tab",
+        "comparison": "isEqualTo",
+        "value": "history"
+      },
+      "name": "group - history"
+    }
+  ],
+  "defaultResourceIds": [],
+  "fallbackResourceIds": [
+    "Azure Security Insights"
+  ],
+  "fromTemplateId": "sentinel-UserWorkbook",
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}
