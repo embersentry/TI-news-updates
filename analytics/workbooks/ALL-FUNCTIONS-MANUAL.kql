@@ -1,0 +1,1459 @@
+// ###########################################################################
+// TAM EWI — ALL 52 SAVED FUNCTIONS, FOR MANUAL CREATION IN MICROSOFT SENTINEL
+// ###########################################################################
+//
+// HOW TO USE (Azure portal → Log Analytics workspace → Logs, KQL mode)
+//   1. Work top to bottom. Order matters: later functions call earlier ones.
+//   2. Copy ONE block: from its '=== STEP' line down to the last line of code,
+//      i.e. everything ABOVE the blank line and the '▲ END STEP' marker.
+//      Do NOT copy the END marker: a comment as the last line can break a saved function.
+//      Each block has no blank lines inside it, so the editor treats it as one query.
+//   3. Paste into an EMPTY Logs editor → Save → Save as function.
+//        Function name    : the NAME shown in the block (exact, case-sensitive)
+//        Legacy category  : TAM EWI
+//        Parameters       : only STEP 02 (TAM_WorkDays) has them — add exactly as shown
+//   4. Clear the editor and repeat for the next block.
+//   5. When all 52 are saved, test:  TAM_EWI() | project Family, IndicatorId, Display, State, Reason
+//      Expect 24 rows. Indicators with no data source yet show State = 'No data'.
+//
+// Prerequisite: create watchlist TAM_EWIConfig first (watchlists/TAM_EWIConfig.csv).
+//
+// CHECKLIST (tick off as you save)
+//   [ ] 01  TAM_ConfigBag
+//   [ ] 02  TAM_WorkDays (s:datetime, e:datetime)
+//   [ ] 03  TAM_History
+//   [ ] 04  TAM_EstateInventory
+//   [ ] 05  TAM_ContractedSources
+//   [ ] 06  TAM_DetectionInventory
+//   [ ] 07  TAM_ThreatProfile
+//   [ ] 08  TAM_Tickets
+//   [ ] 09  TAM_ClientRequests
+//   [ ] 10  TAM_Runbooks
+//   [ ] 11  TAM_Changes
+//   [ ] 12  TAM_ServiceReviews
+//   [ ] 13  TAM_Contacts
+//   [ ] 14  TAM_CSAT
+//   [ ] 15  TAM_Contract
+//   [ ] 16  TAM_Entitlement
+//   [ ] 17  TAM_PSA
+//   [ ] 18  TAM_Signals
+//   [ ] 19  TAM_VulnSnapshots
+//   [ ] 20  TAM_Vulns
+//   [ ] 21  TAM_D_Devices
+//   [ ] 22  TAM_A01
+//   [ ] 23  TAM_D_Sources
+//   [ ] 24  TAM_A02
+//   [ ] 25  TAM_D_Ingest
+//   [ ] 26  TAM_A03
+//   [ ] 27  TAM_A04
+//   [ ] 28  TAM_D_Coverage
+//   [ ] 29  TAM_A05
+//   [ ] 30  TAM_A06
+//   [ ] 31  TAM_A07
+//   [ ] 32  TAM_D_Response
+//   [ ] 33  TAM_A08
+//   [ ] 34  TAM_A09
+//   [ ] 35  TAM_A10
+//   [ ] 36  TAM_D_Vulns
+//   [ ] 37  TAM_A11
+//   [ ] 38  TAM_B01
+//   [ ] 39  TAM_B02
+//   [ ] 40  TAM_B03
+//   [ ] 41  TAM_B04
+//   [ ] 42  TAM_B05
+//   [ ] 43  TAM_B06
+//   [ ] 44  TAM_B07
+//   [ ] 45  TAM_B08
+//   [ ] 46  TAM_B09
+//   [ ] 47  TAM_B10
+//   [ ] 48  TAM_G01
+//   [ ] 49  TAM_EWI
+//   [ ] 50  TAM_SnapshotPayload
+//   [ ] 51  TAM_Trend
+//   [ ] 52  TAM_D_Noise
+// ###########################################################################
+
+
+
+// === STEP 01 of 52 ==========================================================
+// NAME       : TAM_ConfigBag
+// WHAT IT IS : Per-account thresholds and settings as one dynamic bag (watchlist TAM_EWIConfig)
+_GetWatchlist('TAM_EWIConfig')
+| summarize Bag = make_bag(bag_pack(tostring(column_ifexists("Key", "")), tostring(column_ifexists("Value", ""))))
+
+// ▲ END STEP 01 — copy everything above this blank line, then Save as function → name: TAM_ConfigBag
+
+
+
+// === STEP 02 of 52 ==========================================================
+// NAME       : TAM_WorkDays
+// PARAMETERS : add in the Save-as-function dialog, in this order → name 's' type 'datetime', name 'e' type 'datetime'
+// WHAT IT IS : Mon-Fri days elapsed between two datetimes (no holiday calendar)
+let cum = dynamic([0, 0, 1, 2, 3, 4, 5, 5, 5, 6, 7, 8, 9, 10, 10]);
+let n = toint((startofday(e) - startofday(s)) / 1d);
+let dow = toint(dayofweek(s) / 1d);
+let r = n % 7;
+iff(n <= 0, 0, (n / 7) * 5 + toint(cum[dow + r + 1]) - toint(cum[dow + 1]))
+
+// ▲ END STEP 02 — copy everything above this blank line, then Save as function → name: TAM_WorkDays
+
+
+
+// === STEP 03 of 52 ==========================================================
+// NAME       : TAM_History
+// WHAT IT IS : Daily EWI snapshots (TAM_EWISnapshot_CL); empty until the snapshot job has run
+union isfuzzy=true
+    (TAM_EWISnapshot_CL
+     | project TimeGenerated, IndicatorId, Indicator, Family, Value = todouble(Value), State),
+    (datatable(TimeGenerated:datetime, IndicatorId:string, Indicator:string, Family:string, Value:real, State:string)[])
+
+// ▲ END STEP 03 — copy everything above this blank line, then Save as function → name: TAM_History
+
+
+
+// === STEP 04 of 52 ==========================================================
+// NAME       : TAM_EstateInventory
+// WHAT IT IS : Contracted asset list (watchlist TAM_EstateInventory)
+_GetWatchlist('TAM_EstateInventory')
+| project Hostname = tostring(column_ifexists("Hostname", "")),
+          AssetType = tostring(column_ifexists("AssetType", "")),
+          Owner = tostring(column_ifexists("Owner", "")),
+          EdrInScope = tostring(column_ifexists("EdrInScope", "")) in~ ("true", "yes", "y", "1")
+
+// ▲ END STEP 04 — copy everything above this blank line, then Save as function → name: TAM_EstateInventory
+
+
+
+// === STEP 05 of 52 ==========================================================
+// NAME       : TAM_ContractedSources
+// WHAT IT IS : Contracted log sources, with criticality (watchlist TAM_ContractedSources)
+_GetWatchlist('TAM_ContractedSources')
+| project SourceName = tostring(column_ifexists("SourceName", "")),
+          TableName = tostring(column_ifexists("TableName", "")),
+          Match = tolower(tostring(column_ifexists("Match", ""))),
+          Critical = tostring(column_ifexists("Critical", "")) in~ ("true", "yes", "y", "1"),
+          Owner = tostring(column_ifexists("Owner", ""))
+
+// ▲ END STEP 05 — copy everything above this blank line, then Save as function → name: TAM_ContractedSources
+
+
+
+// === STEP 06 of 52 ==========================================================
+// NAME       : TAM_DetectionInventory
+// WHAT IT IS : Enabled detections with ATT&CK mapping and source tables (watchlist TAM_DetectionInventory)
+_GetWatchlist('TAM_DetectionInventory')
+| project RuleName = tostring(column_ifexists("RuleName", "")),
+          Platform = tostring(column_ifexists("Platform", "")),
+          Enabled = tostring(column_ifexists("Enabled", "")) in~ ("true", "yes", "y", "1"),
+          Techniques = toupper(tostring(column_ifexists("Techniques", ""))),
+          Tables = tostring(column_ifexists("Tables", "")),
+          DateAdded = todatetime(column_ifexists("DateAdded", ""))
+
+// ▲ END STEP 06 — copy everything above this blank line, then Save as function → name: TAM_DetectionInventory
+
+
+
+// === STEP 07 of 52 ==========================================================
+// NAME       : TAM_ThreatProfile
+// WHAT IT IS : Client threat profile: prioritised ATT&CK techniques (watchlist TAM_ThreatProfile)
+_GetWatchlist('TAM_ThreatProfile')
+| project TechniqueId = toupper(tostring(column_ifexists("TechniqueId", ""))),
+          TechniqueName = tostring(column_ifexists("TechniqueName", "")),
+          Priority = tostring(column_ifexists("Priority", ""))
+
+// ▲ END STEP 07 — copy everything above this blank line, then Save as function → name: TAM_ThreatProfile
+
+
+
+// === STEP 08 of 52 ==========================================================
+// NAME       : TAM_Tickets
+// WHAT IT IS : Tuning and use-case backlog from the ticketing system (watchlist TAM_Tickets)
+_GetWatchlist('TAM_Tickets')
+| project TicketId = tostring(column_ifexists("TicketId", "")),
+          Queue = tostring(column_ifexists("Queue", "")),
+          Title = tostring(column_ifexists("Title", "")),
+          CreatedTime = todatetime(column_ifexists("CreatedTime", "")),
+          ClosedTime = todatetime(column_ifexists("ClosedTime", ""))
+
+// ▲ END STEP 08 — copy everything above this blank line, then Save as function → name: TAM_Tickets
+
+
+
+// === STEP 09 of 52 ==========================================================
+// NAME       : TAM_ClientRequests
+// WHAT IT IS : Requests we are waiting on the client for (watchlist TAM_ClientRequests)
+_GetWatchlist('TAM_ClientRequests')
+| project RequestId = tostring(column_ifexists("RequestId", "")),
+          TicketId = tostring(column_ifexists("TicketId", "")),
+          Summary = tostring(column_ifexists("Summary", "")),
+          RequestedTime = todatetime(column_ifexists("RequestedTime", "")),
+          RespondedTime = todatetime(column_ifexists("RespondedTime", "")),
+          BlocksRemediation = tostring(column_ifexists("BlocksRemediation", "")) in~ ("true", "yes", "y", "1")
+
+// ▲ END STEP 09 — copy everything above this blank line, then Save as function → name: TAM_ClientRequests
+
+
+
+// === STEP 10 of 52 ==========================================================
+// NAME       : TAM_Runbooks
+// WHAT IT IS : Playbook and runbook register from the knowledge base (watchlist TAM_Runbooks)
+_GetWatchlist('TAM_Runbooks')
+| project Name = tostring(column_ifexists("Name", "")),
+          Owner = tostring(column_ifexists("Owner", "")),
+          LastReviewed = todatetime(column_ifexists("LastReviewed", "")),
+          LastTested = todatetime(column_ifexists("LastTested", ""))
+
+// ▲ END STEP 10 — copy everything above this blank line, then Save as function → name: TAM_Runbooks
+
+
+
+// === STEP 11 of 52 ==========================================================
+// NAME       : TAM_Changes
+// WHAT IT IS : Client change calendar (watchlist TAM_Changes)
+_GetWatchlist('TAM_Changes')
+| project ChangeId = tostring(column_ifexists("ChangeId", "")),
+          ChangeDate = todatetime(column_ifexists("ChangeDate", "")),
+          Major = tostring(column_ifexists("Major", "")) in~ ("true", "yes", "y", "1"),
+          Description = tostring(column_ifexists("Description", ""))
+
+// ▲ END STEP 11 — copy everything above this blank line, then Save as function → name: TAM_Changes
+
+
+
+// === STEP 12 of 52 ==========================================================
+// NAME       : TAM_ServiceReviews
+// WHAT IT IS : Service review meeting record (watchlist TAM_ServiceReviews)
+_GetWatchlist('TAM_ServiceReviews')
+| project MeetingDate = todatetime(column_ifexists("MeetingDate", "")),
+          ReviewType = tostring(column_ifexists("ReviewType", "")),
+          SponsorAttendance = tostring(column_ifexists("SponsorAttendance", ""))
+
+// ▲ END STEP 12 — copy everything above this blank line, then Save as function → name: TAM_ServiceReviews
+
+
+
+// === STEP 13 of 52 ==========================================================
+// NAME       : TAM_Contacts
+// WHAT IT IS : CRM relationship map (watchlist TAM_Contacts)
+_GetWatchlist('TAM_Contacts')
+| project Role = tostring(column_ifexists("Role", "")),
+          Name = tostring(column_ifexists("Name", "")),
+          StartDate = todatetime(column_ifexists("StartDate", "")),
+          EndDate = todatetime(column_ifexists("EndDate", ""))
+
+// ▲ END STEP 13 — copy everything above this blank line, then Save as function → name: TAM_Contacts
+
+
+
+// === STEP 14 of 52 ==========================================================
+// NAME       : TAM_CSAT
+// WHAT IT IS : CSAT register: pulses and review scores (watchlist TAM_CSAT)
+_GetWatchlist('TAM_CSAT')
+| extend RawScore = trim(@"\s+", tostring(column_ifexists("Score", "")))
+| project SurveyDate = todatetime(column_ifexists("SurveyDate", "")),
+          Type = tostring(column_ifexists("Type", "")),
+          Respondent = tostring(column_ifexists("Respondent", "")),
+          Score = todouble(RawScore),
+          Responded = isnotempty(RawScore),
+          ActionedDate = todatetime(column_ifexists("ActionedDate", ""))
+
+// ▲ END STEP 14 — copy everything above this blank line, then Save as function → name: TAM_CSAT
+
+
+
+// === STEP 15 of 52 ==========================================================
+// NAME       : TAM_Contract
+// WHAT IT IS : Contract dates from CRM, one row (watchlist TAM_Contract)
+_GetWatchlist('TAM_Contract')
+| project ContractStart = todatetime(column_ifexists("ContractStart", "")),
+          ContractEnd = todatetime(column_ifexists("ContractEnd", "")),
+          RenewalConversationDate = todatetime(column_ifexists("RenewalConversationDate", ""))
+| take 1
+
+// ▲ END STEP 15 — copy everything above this blank line, then Save as function → name: TAM_Contract
+
+
+
+// === STEP 16 of 52 ==========================================================
+// NAME       : TAM_Entitlement
+// WHAT IT IS : Entitlement consumption from PSA (watchlist TAM_Entitlement)
+_GetWatchlist('TAM_Entitlement')
+| project Service = tostring(column_ifexists("Service", "")),
+          Unit = tostring(column_ifexists("Unit", "")),
+          Entitled = todouble(column_ifexists("Entitled", "")),
+          Used = todouble(column_ifexists("Used", ""))
+
+// ▲ END STEP 16 — copy everything above this blank line, then Save as function → name: TAM_Entitlement
+
+
+
+// === STEP 17 of 52 ==========================================================
+// NAME       : TAM_PSA
+// WHAT IT IS : Monthly PSA timesheet and margin roll-up per service (watchlist TAM_PSA)
+_GetWatchlist('TAM_PSA')
+| project Month = startofmonth(todatetime(column_ifexists("Month", ""))),
+          Service = tostring(column_ifexists("Service", "")),
+          ContractedHours = todouble(column_ifexists("ContractedHours", "")),
+          NonContractedHours = todouble(column_ifexists("NonContractedHours", "")),
+          Revenue = todouble(column_ifexists("Revenue", "")),
+          Cost = todouble(column_ifexists("Cost", ""))
+
+// ▲ END STEP 17 — copy everything above this blank line, then Save as function → name: TAM_PSA
+
+
+
+// === STEP 18 of 52 ==========================================================
+// NAME       : TAM_Signals
+// WHAT IT IS : TAM-logged qualitative signals: estate change, competitive, buying elsewhere (watchlist TAM_Signals)
+_GetWatchlist('TAM_Signals')
+| project SignalDate = todatetime(column_ifexists("SignalDate", "")),
+          Category = tostring(column_ifexists("Category", "")),
+          Level = tostring(column_ifexists("Level", "")),
+          Status = tostring(column_ifexists("Status", "")),
+          Description = tostring(column_ifexists("Description", ""))
+
+// ▲ END STEP 18 — copy everything above this blank line, then Save as function → name: TAM_Signals
+
+
+
+// === STEP 19 of 52 ==========================================================
+// NAME       : TAM_VulnSnapshots
+// WHAT IT IS : Daily snapshots of critical/high exposures from Defender Vulnerability Management (TAM_Vulns_CL)
+union isfuzzy=true
+    (TAM_Vulns_CL
+     | project TimeGenerated, DeviceId, DeviceName, CveId, SoftwareName, Severity, FirstSeenTimestamp),
+    (datatable(TimeGenerated:datetime, DeviceId:string, DeviceName:string, CveId:string, SoftwareName:string, Severity:string, FirstSeenTimestamp:datetime)[])
+
+// ▲ END STEP 19 — copy everything above this blank line, then Save as function → name: TAM_VulnSnapshots
+
+
+
+// === STEP 20 of 52 ==========================================================
+// NAME       : TAM_Vulns
+// WHAT IT IS : One row per device+CVE: first seen, still open, age in days
+let snaps = TAM_VulnSnapshots();
+let lastDay = toscalar(snaps | summarize max(startofday(TimeGenerated)));
+snaps
+| summarize FirstSeen = min(coalesce(FirstSeenTimestamp, TimeGenerated)),
+            LastSeen = max(TimeGenerated),
+            DeviceName = take_any(DeviceName),
+            SoftwareName = take_any(SoftwareName),
+            Severity = take_any(Severity)
+    by DeviceId, CveId
+| extend Open = startofday(LastSeen) == lastDay,
+         AgeDays = round((now() - FirstSeen) / 1d, 0)
+
+// ▲ END STEP 20 — copy everything above this blank line, then Save as function → name: TAM_Vulns
+
+
+
+// === STEP 21 of 52 ==========================================================
+// NAME       : TAM_D_Devices
+// WHAT IT IS : Drill-down: EDR devices silent, impaired, or in scope but never seen
+let inv = TAM_EstateInventory()
+    | where EdrInScope
+    | project Host = tolower(tostring(split(Hostname, ".")[0])), Owner, AssetType;
+let devices = DeviceInfo
+    | where TimeGenerated > ago(30d)
+    | extend Excluded = coalesce(tobool(column_ifexists("IsExcluded", false)), false)
+    | summarize arg_max(TimeGenerated, DeviceName, OSPlatform, OnboardingStatus, SensorHealthState, Excluded) by DeviceId
+    | where OnboardingStatus == "Onboarded" and not(Excluded)
+    | extend Host = tolower(tostring(split(DeviceName, ".")[0]));
+let issues = devices
+    | extend Issue = case(TimeGenerated <= ago(24h), "Silent >24h",
+                          SensorHealthState != "Active", strcat("Sensor ", SensorHealthState),
+                          "")
+    | where isnotempty(Issue)
+    | join kind=leftouter inv on Host
+    | project DeviceName, OSPlatform, Issue, LastSeen = TimeGenerated, SensorHealthState, Owner;
+let neverSeen = inv
+    | join kind=leftanti devices on Host
+    | project DeviceName = Host, OSPlatform = "", Issue = "In scope, never seen by EDR",
+              LastSeen = datetime(null), SensorHealthState = "", Owner;
+union issues, neverSeen
+| order by Issue asc, LastSeen asc
+
+// ▲ END STEP 21 — copy everything above this blank line, then Save as function → name: TAM_D_Devices
+
+
+
+// === STEP 22 of 52 ==========================================================
+// NAME       : TAM_A01
+// WHAT IT IS : A01 EDR agent health / reporting rate
+let C = toscalar(TAM_ConfigBag());
+let amberBelow = coalesce(todouble(C["A01.AmberBelow"]), 97.0);
+let redBelow = coalesce(todouble(C["A01.RedBelow"]), 93.0);
+let target = coalesce(todouble(C["A01.Target"]), 98.0);
+let fallWeeks = toint(coalesce(todouble(C["A01.RedFallingWeeks"]), 3.0));
+let devices = DeviceInfo
+    | where TimeGenerated > ago(30d)
+    | extend Excluded = coalesce(tobool(column_ifexists("IsExcluded", false)), false)
+    | summarize arg_max(TimeGenerated, DeviceName, OnboardingStatus, SensorHealthState, Excluded) by DeviceId
+    | where OnboardingStatus == "Onboarded" and not(Excluded);
+let seen = toscalar(devices | count);
+let inScope = toscalar(TAM_EstateInventory() | where EdrInScope | count);
+let expected = max_of(seen, inScope);
+let healthy = toscalar(devices | where TimeGenerated > ago(24h) and SensorHealthState == "Active" | count);
+let silent = toscalar(devices | where TimeGenerated <= ago(24h) | count);
+let impaired = toscalar(devices | where TimeGenerated > ago(24h) and SensorHealthState != "Active" | count);
+let v = iff(expected == 0, real(null), round(100.0 * healthy / expected, 1));
+let falling = tobool(toscalar(TAM_History()
+    | where IndicatorId == "A01" and TimeGenerated > ago((fallWeeks + 1) * 7d)
+    | extend W = toint((now() - TimeGenerated) / 7d)
+    | summarize V = avg(Value) by W
+    | order by W desc
+    | extend Down = V < prev(V)
+    | summarize Points = count(), Downs = countif(Down)
+    | project Falling = Points == fallWeeks + 1 and Downs == fallWeeks));
+let state = case(isnull(v), "No data",
+                 v < redBelow or falling, "Red",
+                 v < amberBelow, "Amber",
+                 "Green");
+print Family = "Telemetry", IndicatorId = "A01", Indicator = "EDR agent health / reporting rate",
+      Source = "Defender XDR · DeviceInfo",
+      Value = v,
+      Display = iff(isnull(v), "—", strcat(v, "%")),
+      Context = strcat("target ", target, "%"),
+      State = state,
+      Reason = iff(isnull(v), "No onboarded devices found in DeviceInfo (is the Defender XDR connector streaming DeviceInfo?)",
+                   strcat(healthy, " of ", expected, " expected devices healthy; ", silent, " silent >24h; ", impaired, " impaired",
+                          iff(inScope > seen, strcat("; ", inScope - seen, " in scope but never seen"), ""),
+                          iff(falling, strcat("; falling ", fallWeeks, " weeks running"), ""))),
+      AmberRule = strcat("<", amberBelow, "%"),
+      RedRule = strcat("<", redBelow, "% or falling ", fallWeeks, " wks"),
+      FirstMove = "Named device list to client IT with an owner and a date; SIP entry if unresolved in 14 days"
+
+// ▲ END STEP 22 — copy everything above this blank line, then Save as function → name: TAM_A01
+
+
+
+// === STEP 23 of 52 ==========================================================
+// NAME       : TAM_D_Sources
+// WHAT IT IS : Drill-down: every contracted log source with last arrival and hours quiet
+let observed = union isfuzzy=true
+    (Usage
+     | where TimeGenerated > ago(14d) and Quantity > 0
+     | summarize LastSeen = max(TimeGenerated) by TableName = DataType
+     | extend Key = ""),
+    (CommonSecurityLog
+     | where TimeGenerated > ago(14d)
+     | summarize LastSeen = max(TimeGenerated) by Key = tolower(strcat(DeviceVendor, "|", DeviceProduct, "|", Computer, "|", DeviceName))
+     | extend TableName = "CommonSecurityLog"),
+    (Syslog
+     | where TimeGenerated > ago(14d)
+     | summarize LastSeen = max(TimeGenerated) by Key = tolower(strcat(Computer, "|", HostName))
+     | extend TableName = "Syslog"),
+    (SecurityEvent
+     | where TimeGenerated > ago(14d)
+     | summarize LastSeen = max(TimeGenerated) by Key = tolower(Computer)
+     | extend TableName = "SecurityEvent"),
+    (WindowsEvent
+     | where TimeGenerated > ago(14d)
+     | summarize LastSeen = max(TimeGenerated) by Key = tolower(Computer)
+     | extend TableName = "WindowsEvent");
+let sources = TAM_ContractedSources();
+let matched = sources
+    | join kind=inner observed on TableName
+    | where isempty(Match) or Key contains Match
+    | summarize LastSeen = max(LastSeen) by SourceName;
+sources
+| join kind=leftouter matched on SourceName
+| extend QuietHours = iff(isnull(LastSeen), real(null), round((now() - LastSeen) / 1h, 1))
+| project SourceName, TableName, Match, Critical, Owner, LastSeen, QuietHours
+| order by QuietHours desc
+
+// ▲ END STEP 23 — copy everything above this blank line, then Save as function → name: TAM_D_Sources
+
+
+
+// === STEP 24 of 52 ==========================================================
+// NAME       : TAM_A02
+// WHAT IT IS : A02 Log source silence
+let C = toscalar(TAM_ConfigBag());
+let amberHours = coalesce(todouble(C["A02.AmberQuietHours"]), 24.0);
+let redHoursCritical = coalesce(todouble(C["A02.RedCriticalQuietHours"]), 72.0);
+let redCount = coalesce(todouble(C["A02.RedQuietSourceCount"]), 2.0);
+let s = TAM_D_Sources()
+    | extend Quiet = isnull(LastSeen) or QuietHours > amberHours,
+             CriticalQuiet = Critical and (isnull(LastSeen) or QuietHours > redHoursCritical);
+let total = toscalar(s | count);
+let quiet = toscalar(s | where Quiet | count);
+let critQuiet = toscalar(s | where CriticalQuiet | count);
+let quietList = toscalar(s | where Quiet | summarize strcat_array(make_list(strcat(SourceName, iff(Critical, " (critical)", "")), 6), ", "));
+let changes = toscalar(TAM_Changes() | where ChangeDate between (ago(72h) .. now()) | count);
+let state = case(total == 0, "No data",
+                 critQuiet > 0 or quiet >= redCount, "Red",
+                 quiet > 0, "Amber",
+                 "Green");
+print Family = "Telemetry", IndicatorId = "A02", Indicator = "Log source silence",
+      Source = "Sentinel · Usage + per-device tables",
+      Value = todouble(quiet),
+      Display = iff(total == 0, "—", strcat(total - quiet, " / ", total)),
+      Context = strcat(quiet, " quiet >", amberHours, "h"),
+      State = state,
+      Reason = iff(total == 0, "No contracted sources listed in watchlist TAM_ContractedSources",
+                   strcat(iff(quiet == 0, "All contracted sources arrived in the window", strcat("Quiet: ", quietList)),
+                          iff(changes > 0, strcat("; ", changes, " client change(s) logged in the last 72h — check the change calendar"), ""))),
+      AmberRule = strcat("Any source quiet >", amberHours, "h"),
+      RedRule = strcat("Critical source >", redHoursCritical, "h, or ", redCount, "+ sources"),
+      FirstMove = "Check the change calendar, then raise at daily ops and ticket the client same day"
+
+// ▲ END STEP 24 — copy everything above this blank line, then Save as function → name: TAM_A02
+
+
+
+// === STEP 25 of 52 ==========================================================
+// NAME       : TAM_D_Ingest
+// WHAT IT IS : Drill-down: billable ingest per table, last 24h vs 30-day baseline
+Usage
+| where TimeGenerated >= startofday(ago(30d)) and IsBillable == true
+| summarize Last24hGB = round(sumif(Quantity, TimeGenerated > ago(24h)) / 1024.0, 3),
+            BaselineGBPerDay = round(sumif(Quantity, TimeGenerated < startofday(now())) / 1024.0 / 30.0, 3)
+    by DataType
+| extend DriftPct = iff(BaselineGBPerDay > 0, round(100.0 * (Last24hGB - BaselineGBPerDay) / BaselineGBPerDay, 1), real(null))
+| order by abs(DriftPct) desc
+
+// ▲ END STEP 25 — copy everything above this blank line, then Save as function → name: TAM_D_Ingest
+
+
+
+// === STEP 26 of 52 ==========================================================
+// NAME       : TAM_A03
+// WHAT IT IS : A03 Ingest volume drift
+let C = toscalar(TAM_ConfigBag());
+let amberPct = coalesce(todouble(C["A03.AmberDriftPct"]), 20.0);
+let redPct = coalesce(todouble(C["A03.RedDriftPct"]), 40.0);
+let capGB = coalesce(todouble(C["A03.LicenceCapGBPerDay"]), 0.0);
+let headroomPct = coalesce(todouble(C["A03.RedCapHeadroomPct"]), 10.0);
+let u = Usage | where TimeGenerated >= startofmonth(ago(31d)) and IsBillable == true;
+let last24 = toscalar(u | where TimeGenerated > ago(24h) | summarize sum(Quantity) / 1024.0);
+let baseline = toscalar(u | where TimeGenerated >= startofday(ago(30d)) and TimeGenerated < startofday(now()) | summarize sum(Quantity) / 1024.0 / 30.0);
+let mtd = toscalar(u | where TimeGenerated >= startofmonth(now()) | summarize sum(Quantity) / 1024.0);
+let daysIn = todouble(dayofmonth(endofmonth(now())));
+let daysGone = (now() - startofmonth(now())) / 1d;
+let forecast = iff(daysGone > 0, mtd / daysGone * daysIn, real(null));
+let drift = iff(baseline > 0, round(100.0 * (last24 - baseline) / baseline, 1), real(null));
+let capUse = iff(capGB > 0, round(100.0 * last24 / capGB, 1), real(null));
+let state = case(isnull(drift), "No data",
+                 abs(drift) >= redPct or (isnotnull(capUse) and capUse >= 100.0 - headroomPct), "Red",
+                 abs(drift) >= amberPct, "Amber",
+                 "Green");
+print Family = "Telemetry", IndicatorId = "A03", Indicator = "Ingest volume drift",
+      Source = "Sentinel · Usage",
+      Value = drift,
+      Display = iff(isnull(drift), "—", strcat(iff(drift > 0, "+", ""), drift, "%")),
+      Context = "vs 30-day baseline",
+      State = state,
+      Reason = iff(isnull(drift), "No billable ingestion baseline in Usage",
+                   strcat(round(last24, 1), " GB in last 24h vs ", round(baseline, 1), " GB/day baseline",
+                          iff(capGB > 0, strcat("; ", capUse, "% of the ", capGB, " GB/day licence cap; month forecast ",
+                                               round(forecast, 0), " GB vs ", round(capGB * daysIn, 0), " GB"), ""))),
+      AmberRule = strcat("±", amberPct, "% vs 30-day baseline"),
+      RedRule = strcat("±", redPct, "%, or within ", headroomPct, "% of licence cap"),
+      FirstMove = "Correlate with their change record; forecast licence position; flag to the SDM"
+
+// ▲ END STEP 26 — copy everything above this blank line, then Save as function → name: TAM_A03
+
+
+
+// === STEP 27 of 52 ==========================================================
+// NAME       : TAM_A04
+// WHAT IT IS : A04 Parser and field-mapping failures
+let detTables = TAM_DetectionInventory()
+    | where Enabled
+    | mv-expand T = split(Tables, ";") to typeof(string)
+    | extend T = trim(@"\s+", T)
+    | where isnotempty(T)
+    | distinct T;
+let failures = union isfuzzy=true
+    (_LogOperation
+     | where TimeGenerated > ago(8d) and Level in ("Error", "Warning")
+     | extend TableName = extract(@"(?i)table[\s:'""]+([A-Za-z0-9_]+)", 1, Detail)
+     | project TimeGenerated, Kind = strcat("Ingestion: ", Category),
+               Signature = strcat(Category, " | ", Operation, iff(isnotempty(TableName), strcat(" | ", TableName), "")),
+               TableName, Rule = ""),
+    (Syslog
+     | where TimeGenerated > ago(8d) and (SyslogMessage has "CEF:" or SyslogMessage has "LEEF:")
+     | project TimeGenerated, Kind = "Parsing: CEF/LEEF landed in Syslog",
+               Signature = strcat("Unparsed CEF/LEEF via collector ", Computer),
+               TableName = "CommonSecurityLog", Rule = ""),
+    (SentinelHealth
+     | where TimeGenerated > ago(8d) and SentinelResourceType has "Analytic" and Status != "Success"
+     | project TimeGenerated, Kind = "Detection: analytics rule run",
+               Signature = strcat("Rule run ", Status, ": ", SentinelResourceName),
+               TableName = "", Rule = SentinelResourceName);
+let sig = failures
+    | summarize FirstSeen = min(TimeGenerated), LastSeen = max(TimeGenerated), Events = count() by Signature, Kind, TableName, Rule
+    | where LastSeen > ago(24h)
+    | extend IsNew = FirstSeen > ago(24h),
+             AffectsDetection = isnotempty(Rule) or TableName in (detTables);
+let active = toscalar(sig | count);
+let newCount = toscalar(sig | where IsNew | count);
+let affecting = toscalar(sig | where AffectsDetection | count);
+let top3 = toscalar(sig | order by AffectsDetection desc, Events desc | summarize strcat_array(make_list(Signature, 3), "; "));
+let state = case(affecting > 0, "Red",
+                 active > 0, "Amber",
+                 "Green");
+print Family = "Telemetry", IndicatorId = "A04", Indicator = "Parser and field-mapping failures",
+      Source = "Sentinel · _LogOperation, Syslog, SentinelHealth",
+      Value = todouble(active),
+      Display = strcat(active, " active"),
+      Context = strcat(newCount, " new in 24h"),
+      State = state,
+      Reason = iff(active == 0, "No ingestion, parsing or rule-run failures in the last 24h",
+                   strcat(active, " failure signature(s) active, ", newCount, " new, ", affecting, " affecting a detection in use: ", top3)),
+      AmberRule = "Any new failure (stays amber while active)",
+      RedRule = "Failure affecting a detection in use",
+      FirstMove = "Content team ticket; identify which detections are silently degraded"
+
+// ▲ END STEP 27 — copy everything above this blank line, then Save as function → name: TAM_A04
+
+
+
+// === STEP 28 of 52 ==========================================================
+// NAME       : TAM_D_Coverage
+// WHAT IT IS : Drill-down: each threat-profile technique with rules mapped and whether one fired in 90 days
+let firing = union isfuzzy=true
+    (SecurityAlert
+     | where TimeGenerated > ago(90d)
+     | mv-expand Technique = todynamic(Techniques) to typeof(string)
+     | project Parent = toupper(tostring(split(Technique, ".")[0])), Detection = AlertName),
+    (AlertInfo
+     | where TimeGenerated > ago(90d)
+     | mv-expand Technique = extract_all(@"(T\d{4}(?:\.\d{3})?)", AttackTechniques) to typeof(string)
+     | project Parent = toupper(tostring(split(Technique, ".")[0])), Detection = Title)
+    | where isnotempty(Parent)
+    | summarize FiredDetections = dcount(Detection) by Parent;
+let rules = TAM_DetectionInventory()
+    | where Enabled
+    | mv-expand Technique = split(Techniques, ";") to typeof(string)
+    | extend Parent = toupper(tostring(split(trim(@"\s+", Technique), ".")[0]))
+    | where isnotempty(Parent)
+    | summarize Rules = dcount(RuleName), RuleNames = make_set(RuleName, 10) by Parent;
+TAM_ThreatProfile()
+| extend Parent = toupper(tostring(split(TechniqueId, ".")[0]))
+| join kind=leftouter rules on Parent
+| join kind=leftouter firing on Parent
+| extend Rules = coalesce(Rules, 0), FiredDetections = coalesce(FiredDetections, 0)
+| extend Coverage = case(Rules > 0 and FiredDetections > 0, "Proven",
+                         Rules > 0, "Rule exists, unvalidated",
+                         "Gap")
+| project TechniqueId, TechniqueName, Priority, Coverage, Rules, FiredDetections, RuleNames
+| order by Priority asc, Coverage desc
+
+// ▲ END STEP 28 — copy everything above this blank line, then Save as function → name: TAM_D_Coverage
+
+
+
+// === STEP 29 of 52 ==========================================================
+// NAME       : TAM_A05
+// WHAT IT IS : A05 Detection coverage vs ATT&CK
+let C = toscalar(TAM_ConfigBag());
+let newDays = coalesce(todouble(C["A05.AmberNoNewCoverageDays"]), 60.0);
+let topLabel = coalesce(tostring(C["A05.TopThreatPriority"]), "Top");
+let inv = TAM_DetectionInventory() | where Enabled;
+let invCount = toscalar(inv | count);
+let added = toscalar(inv | where DateAdded > ago(newDays * 1d) | count);
+let covered = inv
+    | mv-expand Technique = split(Techniques, ";") to typeof(string)
+    | extend Parent = toupper(tostring(split(trim(@"\s+", Technique), ".")[0]))
+    | where isnotempty(Parent)
+    | distinct Parent;
+let top = TAM_ThreatProfile()
+    | where Priority =~ topLabel
+    | extend Parent = toupper(tostring(split(TechniqueId, ".")[0]));
+let topCount = toscalar(top | count);
+let gaps = top | join kind=leftanti covered on Parent;
+let gapCount = toscalar(gaps | count);
+let gapList = toscalar(gaps | summarize strcat_array(make_list(strcat(TechniqueId, " ", TechniqueName), 5), ", "));
+let state = case(invCount == 0, "No data",
+                 gapCount > 0, "Red",
+                 added == 0, "Amber",
+                 "Green");
+print Family = "Detection", IndicatorId = "A05", Indicator = "Detection coverage vs ATT&CK",
+      Source = "Content management · TAM_DetectionInventory + TAM_ThreatProfile",
+      Value = todouble(gapCount),
+      Display = iff(topCount == 0, "—", strcat(topCount - gapCount, " / ", topCount)),
+      Context = strcat(added, " rules added in ", newDays, "d"),
+      State = state,
+      Reason = case(invCount == 0, "Detection inventory watchlist is empty",
+                    topCount == 0, strcat("No '", topLabel, "' techniques in the threat profile; ", added, " rules added in ", newDays, " days"),
+                    gapCount > 0, strcat(gapCount, " named gap(s) in the top threat set: ", gapList),
+                    strcat("Top threat set covered; ", added, " rules added in ", newDays, " days")),
+      AmberRule = strcat("No new coverage in ", newDays, " days"),
+      RedRule = "Named gap in their top threat set",
+      FirstMove = "Coverage sprint scheduled into the SIP with a validation test"
+
+// ▲ END STEP 29 — copy everything above this blank line, then Save as function → name: TAM_A05
+
+
+
+// === STEP 30 of 52 ==========================================================
+// NAME       : TAM_A06
+// WHAT IT IS : A06 Tuning backlog age
+let C = toscalar(TAM_ConfigBag());
+let amberDays = coalesce(todouble(C["A06.AmberOldestDays"]), 30.0);
+let redDays = coalesce(todouble(C["A06.RedOldestDays"]), 60.0);
+let growWeeks = toint(coalesce(todouble(C["A06.RedGrowingWeeks"]), 3.0));
+let tk = TAM_Tickets();
+let t = tk | where Queue in~ ("Tuning", "UseCase", "Use-case");
+let wired = toscalar(tk | count) > 0;
+let openCount = toscalar(t | where isnull(ClosedTime) | count);
+let oldest = toscalar(t | where isnull(ClosedTime) | summarize round(max(now() - CreatedTime) / 1d, 0));
+let growing = tobool(toscalar(
+    range i from 0 to growWeeks step 1
+    | extend WeekEnd = now() - i * 7d, k = 1
+    | join kind=inner (t | extend k = 1) on k
+    | summarize Open = countif(CreatedTime <= WeekEnd and (isnull(ClosedTime) or ClosedTime > WeekEnd)) by WeekEnd
+    | order by WeekEnd asc
+    | extend Up = Open > prev(Open)
+    | summarize Points = count(), Ups = countif(Up)
+    | project Growing = Points == growWeeks + 1 and Ups == growWeeks));
+let age = coalesce(oldest, 0.0);
+let state = case(not(wired), "No data",
+                 age > redDays or growing, "Red",
+                 age > amberDays, "Amber",
+                 "Green");
+print Family = "Detection", IndicatorId = "A06", Indicator = "Tuning backlog age",
+      Source = "Ticketing · TAM_Tickets",
+      Value = age,
+      Display = iff(not(wired), "—", strcat(age, " days")),
+      Context = "oldest item",
+      State = state,
+      Reason = iff(not(wired), "Ticket feed (TAM_Tickets) is empty",
+                   strcat(openCount, " open tuning/use-case items; oldest ", age, " days",
+                          iff(growing, strcat("; backlog grew ", growWeeks, " weeks running"), ""))),
+      AmberRule = strcat("Oldest item >", amberDays, " days"),
+      RedRule = strcat(">", redDays, " days, or backlog growing ", growWeeks, " wks"),
+      FirstMove = "Joint prioritisation with the SOC Manager and client; agree what we will not do"
+
+// ▲ END STEP 30 — copy everything above this blank line, then Save as function → name: TAM_A06
+
+
+
+// === STEP 31 of 52 ==========================================================
+// NAME       : TAM_A07
+// WHAT IT IS : A07 True-positive rate
+let C = toscalar(TAM_ConfigBag());
+let agreed = coalesce(todouble(C["A07.AgreedTPPct"]), 60.0);
+let monthly = SecurityIncident
+    | where CreatedTime >= startofmonth(now(), -4)
+    | summarize arg_max(TimeGenerated, Status, Classification, ClosedTime) by IncidentNumber
+    | where Status == "Closed" and Classification in ("TruePositive", "FalsePositive", "BenignPositive")
+    | summarize TP = countif(Classification == "TruePositive"), Total = count() by Month = startofmonth(ClosedTime)
+    | extend TPPct = round(100.0 * TP / Total, 1);
+let m1 = toscalar(monthly | where Month == startofmonth(now(), -1) | project TPPct);
+let m2 = toscalar(monthly | where Month == startofmonth(now(), -2) | project TPPct);
+let mtd = toscalar(monthly | where Month == startofmonth(now()) | project TPPct);
+let state = case(isnull(m1), "No data",
+                 m1 < agreed and isnotnull(m2) and m2 < agreed, "Red",
+                 m1 < agreed, "Amber",
+                 "Green");
+print Family = "Detection", IndicatorId = "A07", Indicator = "True-positive rate",
+      Source = "Case data · SecurityIncident",
+      Value = todouble(m1),
+      Display = iff(isnull(m1), "—", strcat(m1, "%")),
+      Context = strcat("agreed ", agreed, "%"),
+      State = state,
+      Reason = iff(isnull(m1), "No classified, closed incidents last month",
+                   strcat("Last month ", m1, "%, month before ", coalesce(tostring(m2), "n/a"), "%, month to date ",
+                          coalesce(tostring(mtd), "n/a"), "% (true positives / classified closed incidents)")),
+      AmberRule = "Below agreed rate for 1 month",
+      RedRule = "Two consecutive months",
+      FirstMove = "Use-case review: tune, retire or re-scope. Publish what changed"
+
+// ▲ END STEP 31 — copy everything above this blank line, then Save as function → name: TAM_A07
+
+
+
+// === STEP 32 of 52 ==========================================================
+// NAME       : TAM_D_Response
+// WHAT IT IS : Drill-down: monthly MTTD / MTTR and SLA attainment by severity (6 months)
+let C = toscalar(TAM_ConfigBag());
+let sev = datatable(Severity:string, Priority:string, DefaultSLA:real)
+    ["High", "P1", 30.0, "Medium", "P2", 120.0, "Low", "P3", 480.0]
+    | extend SLA = coalesce(todouble(C[strcat("A08.SLA.", Severity)]), DefaultSLA);
+SecurityIncident
+| where CreatedTime >= startofmonth(now(), -5)
+| summarize Created = min(CreatedTime), FirstActivity = min(FirstActivityTime),
+            FirstResponse = minif(LastModifiedTime, Status != "New"), Severity = take_any(Severity)
+    by IncidentNumber
+| extend DetectMin = datetime_diff("second", Created, FirstActivity) / 60.0,
+         RespondMin = datetime_diff("second", coalesce(FirstResponse, now()), Created) / 60.0
+| join kind=inner sev on Severity
+| summarize Incidents = count(),
+            MedianDetectMin = round(percentile(DetectMin, 50), 1),
+            MedianRespondMin = round(percentile(RespondMin, 50), 1),
+            P90RespondMin = round(percentile(RespondMin, 90), 1),
+            WithinSLA = countif(RespondMin <= SLA)
+    by Month = startofmonth(Created), Severity, Priority, SLA
+| extend SLAAttainPct = round(100.0 * WithinSLA / Incidents, 1)
+| order by Month asc, Priority asc
+
+// ▲ END STEP 32 — copy everything above this blank line, then Save as function → name: TAM_D_Response
+
+
+
+// === STEP 33 of 52 ==========================================================
+// NAME       : TAM_A08
+// WHAT IT IS : A08 MTTD / MTTR by severity (one row per severity with an SLA)
+let C = toscalar(TAM_ConfigBag());
+let attainTarget = coalesce(todouble(C["A08.SLAAttainmentPct"]), 95.0);
+let riskMargin = coalesce(todouble(C["A08.RiskMarginPts"]), 2.0);
+let sev = datatable(Severity:string, Priority:string, DefaultSLA:real)
+    ["High", "P1", 30.0, "Medium", "P2", 120.0, "Low", "P3", 480.0]
+    | extend SLA = coalesce(todouble(C[strcat("A08.SLA.", Severity)]), DefaultSLA)
+    | where SLA > 0;
+let inc = SecurityIncident
+    | where CreatedTime >= startofmonth(now(), -3)
+    | summarize Created = min(CreatedTime), FirstActivity = min(FirstActivityTime),
+                FirstResponse = minif(LastModifiedTime, Status != "New"), Severity = take_any(Severity)
+        by IncidentNumber
+    | extend DetectMin = datetime_diff("second", Created, FirstActivity) / 60.0,
+             RespondMin = datetime_diff("second", coalesce(FirstResponse, now()), Created) / 60.0;
+let last30 = inc
+    | where Created > ago(30d)
+    | join kind=inner sev on Severity
+    | summarize Incidents = count(),
+                MedRespond = percentile(RespondMin, 50),
+                MedDetect = percentile(DetectMin, 50),
+                WithinSLA = countif(RespondMin <= SLA)
+        by Severity;
+let monthly = inc
+    | where Created < startofmonth(now())
+    | summarize MedR = percentile(RespondMin, 50), MedD = percentile(DetectMin, 50) by Severity, Month = startofmonth(Created)
+    | order by Severity asc, Month asc
+    | extend UpR = Severity == prev(Severity) and MedR > prev(MedR),
+             UpD = Severity == prev(Severity) and MedD > prev(MedD)
+    | summarize RisesR = countif(UpR), RisesD = countif(UpD), Months = count() by Severity
+    | extend Worsening = Months >= 3 and (RisesR >= 2 or RisesD >= 2);
+sev
+| join kind=leftouter last30 on Severity
+| join kind=leftouter monthly on Severity
+| extend Incidents = coalesce(Incidents, 0)
+| extend Attain = iff(Incidents > 0, round(100.0 * WithinSLA / Incidents, 1), real(null)),
+         Worse = coalesce(Worsening, false)
+| extend State = case(Incidents == 0, "No data",
+                      Attain < attainTarget + riskMargin, "Red",
+                      Worse, "Amber",
+                      "Green")
+| project Family = "Detection",
+          IndicatorId = strcat("A08.", Priority),
+          Indicator = strcat("MTTD / MTTR — ", Priority, " (", Severity, ")"),
+          Source = "Case data · SecurityIncident",
+          Value = todouble(round(MedRespond, 0)),
+          Display = iff(Incidents == 0, "—", strcat(round(MedRespond, 0), " min")),
+          Context = strcat("SLA ", SLA, " min"),
+          State,
+          Reason = iff(Incidents == 0, strcat("No ", Severity, " incidents in the last 30 days"),
+                       strcat(Incidents, " incidents in 30d; median respond ", round(MedRespond, 0), " min, median detect ",
+                              round(MedDetect, 0), " min; ", Attain, "% within SLA (target ", attainTarget, "%)",
+                              iff(Worse, "; median worsening 2 months running", ""))),
+          AmberRule = "Monthly median worsening 2 months running",
+          RedRule = strcat("SLA attainment <", attainTarget, "% (breach) or within ", riskMargin, " pts (risk)"),
+          FirstMove = "Root cause into the QA non-conformance register; not a comms exercise"
+
+// ▲ END STEP 33 — copy everything above this blank line, then Save as function → name: TAM_A08
+
+
+
+// === STEP 34 of 52 ==========================================================
+// NAME       : TAM_A09
+// WHAT IT IS : A09 Case reopen and escalation rate
+let C = toscalar(TAM_ConfigBag());
+let escTag = coalesce(tostring(C["A09.EscalationLabel"]), "Escalated");
+let hist = SecurityIncident
+    | where CreatedTime >= startofmonth(now(), -4)
+    | project IncidentNumber, TimeGenerated, Status, CreatedTime, Labels;
+let reopened = hist
+    | order by IncidentNumber asc, TimeGenerated asc
+    | extend Reopen = IncidentNumber == prev(IncidentNumber) and prev(Status) == "Closed" and Status != "Closed"
+    | where Reopen
+    | distinct IncidentNumber
+    | extend Reopened = 1;
+let monthly = hist
+    | summarize Created = min(CreatedTime), Escalated = max(toint(tostring(Labels) has escTag)) by IncidentNumber
+    | join kind=leftouter reopened on IncidentNumber
+    | summarize Incidents = count(), Reopens = countif(Reopened == 1), Escalations = countif(Escalated == 1)
+        by Month = startofmonth(Created)
+    | extend Rate = round(100.0 * (Reopens + Escalations) / Incidents, 1),
+             ReopenPct = round(100.0 * Reopens / Incidents, 1),
+             EscPct = round(100.0 * Escalations / Incidents, 1);
+let m1 = toscalar(monthly | where Month == startofmonth(now(), -1) | project Rate);
+let m2 = toscalar(monthly | where Month == startofmonth(now(), -2) | project Rate);
+let m1Esc = toscalar(monthly | where Month == startofmonth(now(), -1) | project EscPct);
+let m1Reo = toscalar(monthly | where Month == startofmonth(now(), -1) | project ReopenPct);
+let baseline = toscalar(monthly | where Month >= startofmonth(now(), -4) and Month < startofmonth(now(), -1) | summarize avg(Rate));
+let csatNow = toscalar(TAM_CSAT() | where SurveyDate > ago(90d) and Responded | summarize avg(Score));
+let csatPrev = toscalar(TAM_CSAT() | where SurveyDate between (ago(180d) .. ago(90d)) and Responded | summarize avg(Score));
+let csatFalling = isnotnull(csatNow) and isnotnull(csatPrev) and csatNow < csatPrev;
+let above = isnotnull(m1) and isnotnull(baseline) and m1 > baseline;
+let rising = above and isnotnull(m2) and m1 > m2;
+let state = case(isnull(m1), "No data",
+                 rising and csatFalling, "Red",
+                 above, "Amber",
+                 "Green");
+print Family = "Detection", IndicatorId = "A09", Indicator = "Case reopen and escalation rate",
+      Source = strcat("Ticketing · SecurityIncident (label '", escTag, "') + CSAT"),
+      Value = todouble(m1),
+      Display = iff(isnull(m1), "—", strcat(m1, "%")),
+      Context = iff(isnull(baseline), "no baseline yet", strcat("baseline ", round(baseline, 1), "%")),
+      State = state,
+      Reason = iff(isnull(m1), "No incidents last month",
+                   strcat("Last month ", m1Esc, "% escalated, ", m1Reo, "% reopened",
+                          iff(rising, "; rising", ""),
+                          iff(csatFalling, strcat("; CSAT falling (", round(csatNow, 1), " vs ", round(csatPrev, 1), ")"), ""))),
+      AmberRule = "Above 3-month baseline for 1 month",
+      RedRule = "Rising with CSAT falling",
+      FirstMove = "Score ten reopened cases; usually a handover or a quality problem"
+
+// ▲ END STEP 34 — copy everything above this blank line, then Save as function → name: TAM_A09
+
+
+
+// === STEP 35 of 52 ==========================================================
+// NAME       : TAM_A10
+// WHAT IT IS : A10 Playbook and runbook currency
+let C = toscalar(TAM_ConfigBag());
+let reviewDays = coalesce(todouble(C["A10.AmberReviewDays"]), 365.0);
+let rb = TAM_Runbooks();
+let total = toscalar(rb | count);
+let lastMajor = toscalar(TAM_Changes() | where Major and ChangeDate <= now() | summarize max(ChangeDate));
+let stale = toscalar(rb | where isnull(LastReviewed) or LastReviewed < ago(reviewDays * 1d) | count);
+let untested = toscalar(rb | where isnotnull(lastMajor) and (isnull(LastTested) or LastTested < lastMajor) | count);
+let untestedList = toscalar(rb | where isnotnull(lastMajor) and (isnull(LastTested) or LastTested < lastMajor) | summarize strcat_array(make_list(Name, 5), ", "));
+let state = case(total == 0, "No data",
+                 untested > 0, "Red",
+                 stale > 0, "Amber",
+                 "Green");
+print Family = "Detection", IndicatorId = "A10", Indicator = "Playbook and runbook currency",
+      Source = "Knowledge base · TAM_Runbooks + TAM_Changes",
+      Value = todouble(stale),
+      Display = iff(total == 0, "—", strcat(stale, " overdue")),
+      Context = strcat(untested, " untested since last major change"),
+      State = state,
+      Reason = case(total == 0, "Runbook register (TAM_Runbooks) is empty",
+                    untested > 0, strcat(untested, " runbook(s) untested since the major change on ", format_datetime(lastMajor, "yyyy-MM-dd"), ": ", untestedList),
+                    strcat(stale, " of ", total, " runbooks past ", reviewDays, "-day review")),
+      AmberRule = strcat(">", reviewDays / 30.0, " months since review"),
+      RedRule = "Untested after major client change",
+      FirstMove = "Schedule a tabletop or purple-team validation; update at the G3 checkpoint"
+
+// ▲ END STEP 35 — copy everything above this blank line, then Save as function → name: TAM_A10
+
+
+
+// === STEP 36 of 52 ==========================================================
+// NAME       : TAM_D_Vulns
+// WHAT IT IS : Drill-down: open critical exposures past the amber age
+let C = toscalar(TAM_ConfigBag());
+let amberDays = coalesce(todouble(C["A11.AmberDays"]), 30.0);
+TAM_Vulns()
+| where Open and Severity =~ "Critical" and AgeDays > amberDays
+| project DeviceName, CveId, SoftwareName, FirstSeen, AgeDays
+| order by AgeDays desc
+
+// ▲ END STEP 36 — copy everything above this blank line, then Save as function → name: TAM_D_Vulns
+
+
+
+// === STEP 37 of 52 ==========================================================
+// NAME       : TAM_A11
+// WHAT IT IS : A11 Vulnerability remediation SLA
+let C = toscalar(TAM_ConfigBag());
+let amberDays = coalesce(todouble(C["A11.AmberDays"]), 30.0);
+let redDays = coalesce(todouble(C["A11.RedDays"]), 60.0);
+let snaps = TAM_VulnSnapshots();
+let lastDay = toscalar(snaps | summarize max(startofday(TimeGenerated)));
+let v = TAM_Vulns() | where Open and Severity =~ "Critical";
+let over30 = toscalar(v | where AgeDays > amberDays | count);
+let over60 = toscalar(v | where AgeDays > redDays | count);
+let openCrit = toscalar(v | count);
+let firstSeen = snaps | summarize FirstSeen = min(coalesce(FirstSeenTimestamp, TimeGenerated)) by DeviceId, CveId;
+let rising = tobool(toscalar(
+    snaps
+    | where Severity =~ "Critical"
+    | extend Day = startofday(TimeGenerated)
+    | where Day == lastDay or Day == lastDay - 7d or Day == lastDay - 14d
+    | join kind=inner firstSeen on DeviceId, CveId
+    | summarize Over = dcountif(strcat(DeviceId, "|", CveId), Day - FirstSeen > amberDays * 1d) by Day
+    | order by Day asc
+    | extend Up = Over > prev(Over)
+    | summarize P = count(), U = countif(Up)
+    | project Rising = P == 3 and U == 2));
+let state = case(isnull(lastDay), "No data",
+                 over60 > 0 or rising, "Red",
+                 over30 > 0, "Amber",
+                 "Green");
+print Family = "Detection", IndicatorId = "A11", Indicator = "Vulnerability remediation SLA",
+      Source = "Defender Vulnerability Management · TAM_Vulns_CL",
+      Value = todouble(over30),
+      Display = iff(isnull(lastDay), "—", strcat(over30, " >", amberDays, "d")),
+      Context = strcat(openCrit, " open criticals"),
+      State = state,
+      Reason = iff(isnull(lastDay), "No vulnerability snapshots yet (TAM_Vulns_CL is fed by the daily Logic App)",
+                   strcat(over30, " critical exposure(s) open >", amberDays, " days, ", over60, " >", redDays, " days",
+                          iff(rising, "; count rising week on week", ""))),
+      AmberRule = strcat("Criticals open >", amberDays, " days"),
+      RedRule = strcat("Criticals >", redDays, " days, or rising"),
+      FirstMove = "Client-owned SIP action; escalate to their sponsor, not their engineer"
+
+// ▲ END STEP 37 — copy everything above this blank line, then Save as function → name: TAM_A11
+
+
+
+// === STEP 38 of 52 ==========================================================
+// NAME       : TAM_B01
+// WHAT IT IS : B01 Service review attendance
+let r = TAM_ServiceReviews() | where MeetingDate <= now() | top 3 by MeetingDate desc;
+let n = toscalar(r | count);
+let attended = toscalar(r | where SponsorAttendance =~ "Attended" | count);
+let notSponsor = toscalar(r | where SponsorAttendance in~ ("Deputy", "Absent") | count);
+let deputies = toscalar(r | where SponsorAttendance =~ "Deputy" | count);
+let last2Absent = tobool(toscalar(r | top 2 by MeetingDate desc | summarize N = count(), A = countif(SponsorAttendance =~ "Absent") | project N == 2 and A == 2));
+let state = case(n == 0, "No data",
+                 last2Absent, "Red",
+                 notSponsor >= 2, "Amber",
+                 "Green");
+print Family = "Engagement", IndicatorId = "B01", Indicator = "Service review attendance",
+      Source = "Meeting record · TAM_ServiceReviews",
+      Value = todouble(attended),
+      Display = iff(n == 0, "—", strcat(attended, " / ", n)),
+      Context = "sponsor attended, last 3 reviews",
+      State = state,
+      Reason = iff(n == 0, "No service reviews recorded",
+                   strcat("Sponsor attended ", attended, " of the last ", n, " reviews; deputy sent ", deputies,
+                          iff(last2Absent, "; absent from the last 2", ""))),
+      AmberRule = "Sponsor sends a deputy twice",
+      RedRule = "Sponsor absent 2 reviews running",
+      FirstMove = "Direct call to the sponsor, not an email. Ask what changed"
+
+// ▲ END STEP 38 — copy everything above this blank line, then Save as function → name: TAM_B01
+
+
+
+// === STEP 39 of 52 ==========================================================
+// NAME       : TAM_B02
+// WHAT IT IS : B02 Client response latency to our tickets (working days)
+let C = toscalar(TAM_ConfigBag());
+let amberDays = coalesce(todouble(C["B02.AmberMedianWorkDays"]), 3.0);
+let redDays = coalesce(todouble(C["B02.RedMedianWorkDays"]), 5.0);
+let req = TAM_ClientRequests()
+    | where RequestedTime > ago(30d) or isnull(RespondedTime)
+    | extend Days = TAM_WorkDays(RequestedTime, coalesce(RespondedTime, now()));
+let n = toscalar(req | count);
+let med = toscalar(req | summarize percentile(Days, 50));
+let blocking = toscalar(req | where isnull(RespondedTime) and BlocksRemediation and Days >= amberDays | count);
+let openN = toscalar(req | where isnull(RespondedTime) | count);
+let state = case(n == 0, "No data",
+                 med > redDays or blocking > 0, "Red",
+                 med > amberDays, "Amber",
+                 "Green");
+print Family = "Engagement", IndicatorId = "B02", Indicator = "Client response latency to our tickets",
+      Source = "Ticketing · TAM_ClientRequests",
+      Value = todouble(med),
+      Display = iff(n == 0, "—", strcat(med, " days")),
+      Context = "median working days, 30d",
+      State = state,
+      Reason = iff(n == 0, "No client requests in the last 30 days",
+                   strcat(n, " requests; median ", med, " working days; ", openN, " still open",
+                          iff(blocking > 0, strcat("; ", blocking, " open request(s) blocking remediation"), ""))),
+      AmberRule = strcat("Median >", amberDays, " working days"),
+      RedRule = strcat(">", redDays, " days, or blocking remediation"),
+      FirstMove = "Escalate through the SDM to the sponsor; log as a client-owned SIP dependency"
+
+// ▲ END STEP 39 — copy everything above this blank line, then Save as function → name: TAM_B02
+
+
+
+// === STEP 40 of 52 ==========================================================
+// NAME       : TAM_B03
+// WHAT IT IS : B03 Sponsor or champion change
+let C = toscalar(TAM_ConfigBag());
+let windowDays = coalesce(todouble(C["B03.ChangeWindowDays"]), 90.0);
+let ct = TAM_Contacts();
+let wired = toscalar(ct | count) > 0;
+let keyRoles = dynamic(["Sponsor", "Champion", "TechnicalLead"]);
+let changes = ct
+    | where Role in~ (keyRoles)
+    | where StartDate between (ago(windowDays * 1d) .. now()) or EndDate between (ago(windowDays * 1d) .. now());
+let changeCount = toscalar(changes | count);
+let changeList = toscalar(changes | summarize strcat_array(make_list(strcat(Role, ": ", Name, iff(isnotnull(EndDate) and EndDate <= now(), " left", " joined")), 4), "; "));
+let current = ct
+    | where Role in~ ("Sponsor", "Champion") and StartDate <= now() and (isnull(EndDate) or EndDate > now())
+    | distinct Role = tolower(Role);
+let vacant = datatable(Role:string)["sponsor", "champion"] | join kind=leftanti current on Role;
+let vacantCount = toscalar(vacant | count);
+let vacantList = toscalar(vacant | summarize strcat_array(make_list(Role), ", "));
+let state = case(not(wired), "No data",
+                 vacantCount > 0, "Red",
+                 changeCount > 0, "Amber",
+                 "Green");
+print Family = "Engagement", IndicatorId = "B03", Indicator = "Sponsor or champion change",
+      Source = "CRM / relationship map · TAM_Contacts",
+      Value = todouble(changeCount),
+      Display = iff(not(wired), "—", strcat(changeCount, " changes")),
+      Context = strcat("in ", windowDays, " days"),
+      State = state,
+      Reason = case(not(wired), "Relationship map (TAM_Contacts) is empty",
+                    vacantCount > 0, strcat("No current holder for: ", vacantList, iff(changeCount > 0, strcat(". Recent: ", changeList), "")),
+                    changeCount > 0, strcat("Recent: ", changeList),
+                    "No key-contact changes"),
+      AmberRule = "Any change in key contact",
+      RedRule = "Champion leaves with no successor",
+      FirstMove = "Re-onboard the relationship in 30 days: re-present value, re-agree the roadmap"
+
+// ▲ END STEP 40 — copy everything above this blank line, then Save as function → name: TAM_B03
+
+
+
+// === STEP 41 of 52 ==========================================================
+// NAME       : TAM_B04
+// WHAT IT IS : B04 CSAT pulse
+let C = toscalar(TAM_ConfigBag());
+let threshold = coalesce(todouble(C["B04.ThresholdScore"]), 4.0);
+let detractor = coalesce(todouble(C["B04.DetractorScore"]), 2.0);
+let target = coalesce(todouble(C["B04.TargetScore"]), 4.5);
+let cs = TAM_CSAT();
+let rolling = toscalar(cs | where SurveyDate > ago(90d) and Responded | summarize round(avg(Score), 1));
+let pulses = cs | where Type =~ "Pulse" and SurveyDate <= now() | top 2 by SurveyDate desc;
+let lastScore = toscalar(pulses | top 1 by SurveyDate desc | project Score);
+let lastAnswered = tobool(toscalar(pulses | top 1 by SurveyDate desc | project Responded));
+let unanswered2 = tobool(toscalar(pulses | summarize N = count(), U = countif(not(Responded)) | project N == 2 and U == 2));
+let breaches48 = toscalar(cs
+    | where Responded and Score < threshold
+    | where (isnull(ActionedDate) and now() - SurveyDate > 48h) or (ActionedDate - SurveyDate > 48h)
+    | where SurveyDate > ago(90d)
+    | count);
+let n = toscalar(pulses | count);
+let state = case(n == 0 and isnull(rolling), "No data",
+                 (lastAnswered and lastScore <= detractor) or unanswered2, "Red",
+                 not(lastAnswered) or lastScore < threshold, "Amber",
+                 "Green");
+print Family = "Engagement", IndicatorId = "B04", Indicator = "CSAT pulse",
+      Source = "CSAT register · TAM_CSAT",
+      Value = todouble(rolling),
+      Display = iff(isnull(rolling), "—", tostring(rolling)),
+      Context = strcat("target ", target),
+      State = state,
+      Reason = iff(n == 0 and isnull(rolling), "CSAT register (TAM_CSAT) is empty",
+                   strcat("Rolling 90-day ", coalesce(tostring(rolling), "n/a"), "; last pulse ",
+                          iff(lastAnswered, tostring(lastScore), "unanswered"),
+                          iff(unanswered2, "; last 2 pulses unanswered", ""),
+                          iff(breaches48 > 0, strcat("; ", breaches48, " low score(s) not actioned within 48h"), ""))),
+      AmberRule = strcat("Below ", threshold, ", or unanswered"),
+      RedRule = strcat("Detractor (≤", detractor, "), or 2 unanswered"),
+      FirstMove = "SDM contact within 48h; root cause logged in the same register as QA findings"
+
+// ▲ END STEP 41 — copy everything above this blank line, then Save as function → name: TAM_B04
+
+
+
+// === STEP 42 of 52 ==========================================================
+// NAME       : TAM_B05
+// WHAT IT IS : B05 Entitlement consumption
+let C = toscalar(TAM_ConfigBag());
+let amberPct = coalesce(todouble(C["B05.AmberUsedPct"]), 70.0);
+let redPct = coalesce(todouble(C["B05.RedUsedPct"]), 50.0);
+let redWindowDays = coalesce(todouble(C["B05.RedDaysToRenewal"]), 90.0);
+let amberFromElapsed = coalesce(todouble(C["B05.AmberFromElapsedPct"]), 50.0);
+let start = toscalar(TAM_Contract() | project ContractStart);
+let finish = toscalar(TAM_Contract() | project ContractEnd);
+let entitled = toscalar(TAM_Entitlement() | summarize sum(Entitled));
+let used = toscalar(TAM_Entitlement() | summarize sum(Used));
+let usedPct = iff(entitled > 0, round(100.0 * used / entitled, 0), real(null));
+let elapsedPct = iff(isnotnull(start) and isnotnull(finish) and finish > start, round(100.0 * (now() - start) / (finish - start), 0), real(null));
+let monthsGone = iff(isnotnull(start), round((now() - start) / 30.44d, 0), real(null));
+let daysLeft = iff(isnotnull(finish), round((finish - now()) / 1d, 0), real(null));
+let state = case(isnull(usedPct), "No data",
+                 usedPct < redPct and isnotnull(daysLeft) and daysLeft <= redWindowDays, "Red",
+                 usedPct < amberPct and coalesce(elapsedPct, 100.0) >= amberFromElapsed, "Amber",
+                 "Green");
+print Family = "Commercial", IndicatorId = "B05", Indicator = "Entitlement consumption",
+      Source = "PSA · TAM_Entitlement + TAM_Contract",
+      Value = usedPct,
+      Display = iff(isnull(usedPct), "—", strcat(usedPct, "%")),
+      Context = iff(isnull(monthsGone), "contract dates missing", strcat(monthsGone, " mths elapsed")),
+      State = state,
+      Reason = iff(isnull(usedPct), "No entitlement recorded in TAM_Entitlement",
+                   strcat(round(used, 1), " of ", round(entitled, 1), " entitled units used (", usedPct, "%); ",
+                          coalesce(tostring(elapsedPct), "?"), "% of term elapsed; ", coalesce(tostring(daysLeft), "?"), " days to renewal")),
+      AmberRule = strcat("<", amberPct, "% used (once ", amberFromElapsed, "% of term has elapsed)"),
+      RedRule = strcat("<", redPct, "% at ", redWindowDays, " days from renewal"),
+      FirstMove = "Book the days. Unused entitlement is our most reliable churn predictor"
+
+// ▲ END STEP 42 — copy everything above this blank line, then Save as function → name: TAM_B05
+
+
+
+// === STEP 43 of 52 ==========================================================
+// NAME       : TAM_B06
+// WHAT IT IS : B06 Contract runway
+let C = toscalar(TAM_ConfigBag());
+let amberDays = coalesce(todouble(C["B06.AmberDaysToRenewal"]), 180.0);
+let redDays = coalesce(todouble(C["B06.RedDaysToRenewal"]), 90.0);
+let convWindow = coalesce(todouble(C["B06.ConversationCountsWithinDays"]), 180.0);
+let finish = toscalar(TAM_Contract() | project ContractEnd);
+let conv = toscalar(TAM_Contract() | project RenewalConversationDate);
+let daysLeft = iff(isnotnull(finish), round((finish - now()) / 1d, 0), real(null));
+let held = isnotnull(conv) and conv > ago(convWindow * 1d) and conv <= now();
+let state = case(isnull(daysLeft), "No data",
+                 daysLeft <= redDays and not(held), "Red",
+                 daysLeft <= amberDays, "Amber",
+                 "Green");
+print Family = "Commercial", IndicatorId = "B06", Indicator = "Contract runway",
+      Source = "CRM · TAM_Contract",
+      Value = daysLeft,
+      Display = iff(isnull(daysLeft), "—", strcat(daysLeft, " days")),
+      Context = iff(held, "renewal conversation held", "no renewal conversation yet"),
+      State = state,
+      Reason = iff(isnull(daysLeft), "Contract end date missing from TAM_Contract",
+                   strcat(daysLeft, " days to renewal on ", format_datetime(finish, "yyyy-MM-dd"),
+                          iff(held, strcat("; renewal conversation on ", format_datetime(conv, "yyyy-MM-dd")), "; no renewal conversation recorded"))),
+      AmberRule = strcat(amberDays, " days to renewal"),
+      RedRule = strcat(redDays, " days with no renewal conversation"),
+      FirstMove = "Evidence pack to the Account Director: outcomes delivered, roadmap ahead"
+
+// ▲ END STEP 43 — copy everything above this blank line, then Save as function → name: TAM_B06
+
+
+
+// === STEP 44 of 52 ==========================================================
+// NAME       : TAM_B07
+// WHAT IT IS : B07 Estate change with no service change
+let s = TAM_Signals() | where Category =~ "EstateChange" and Status !~ "Closed";
+let reds = toscalar(s | where Level =~ "Red" | count);
+let ambers = toscalar(s | where Level =~ "Amber" | count);
+let latestNote = toscalar(s | top 1 by SignalDate desc | project Description);
+let state = case(reds > 0, "Red", ambers > 0, "Amber", "Green");
+print Family = "Commercial", IndicatorId = "B07", Indicator = "Estate change with no service change",
+      Source = "Client conversations · TAM_Signals",
+      Value = todouble(reds + ambers),
+      Display = strcat(reds + ambers, " open"),
+      Context = "estate-change signals",
+      State = state,
+      Reason = iff(reds + ambers == 0, "No open estate-change signals logged", strcat("Latest: ", latestNote)),
+      AmberRule = "Cloud, M&A or OT change noted",
+      RedRule = "Change live and out of scope",
+      FirstMove = "Scope conversation now — this is pipeline, and a coverage gap if ignored"
+
+// ▲ END STEP 44 — copy everything above this blank line, then Save as function → name: TAM_B07
+
+
+
+// === STEP 45 of 52 ==========================================================
+// NAME       : TAM_B08
+// WHAT IT IS : B08 Competitive or RFP signal
+let s = TAM_Signals() | where Category =~ "Competitive" and Status !~ "Closed";
+let reds = toscalar(s | where Level =~ "Red" | count);
+let ambers = toscalar(s | where Level =~ "Amber" | count);
+let latestNote = toscalar(s | top 1 by SignalDate desc | project Description);
+let state = case(reds > 0, "Red", ambers > 0, "Amber", "Green");
+print Family = "Commercial", IndicatorId = "B08", Indicator = "Competitive or RFP signal",
+      Source = "Any source · TAM_Signals",
+      Value = todouble(reds + ambers),
+      Display = strcat(reds + ambers, " open"),
+      Context = "competitive signals",
+      State = state,
+      Reason = iff(reds + ambers == 0, "No open competitive signals logged", strcat("Latest: ", latestNote)),
+      AmberRule = "Market noise, tender portal",
+      RedRule = "RFP issued or benchmark requested",
+      FirstMove = "Account Director led. TAM supplies the evidence, not the pitch"
+
+// ▲ END STEP 45 — copy everything above this blank line, then Save as function → name: TAM_B08
+
+
+
+// === STEP 46 of 52 ==========================================================
+// NAME       : TAM_B09
+// WHAT IT IS : B09 Cross-service inactivity
+let C = toscalar(TAM_ConfigBag());
+let svc = split(coalesce(tostring(C["B09.OtherServices"]), "OffSec;Advisory"), ";");
+let months = toint(coalesce(todouble(C["B09.AmberInactiveMonths"]), 6.0));
+let psa = TAM_PSA();
+let wired = toscalar(psa | count) > 0;
+let recent = toscalar(psa
+    | where Month >= startofmonth(now(), -months) and Service in~ (svc) and (ContractedHours + NonContractedHours) > 0
+    | summarize sum(ContractedHours + NonContractedHours));
+let elsewhere = toscalar(TAM_Signals() | where Category =~ "BuyingElsewhere" and Status !~ "Closed" | count);
+let hours = coalesce(recent, 0.0);
+let state = case(not(wired), "No data",
+                 elsewhere > 0, "Red",
+                 hours == 0, "Amber",
+                 "Green");
+print Family = "Commercial", IndicatorId = "B09", Indicator = "Cross-service inactivity",
+      Source = "PSA / CRM · TAM_PSA + TAM_Signals",
+      Value = hours,
+      Display = iff(not(wired), "—", strcat(round(hours, 0), " h")),
+      Context = strcat(strcat_array(svc, " + "), ", last ", months, " months"),
+      State = state,
+      Reason = case(not(wired), "PSA roll-up (TAM_PSA) is empty",
+                    elsewhere > 0, strcat(elsewhere, " open signal(s) that the client is buying these services elsewhere"),
+                    hours == 0, strcat("No ", strcat_array(svc, " or "), " work in ", months, " months"),
+                    strcat(round(hours, 0), " hours of ", strcat_array(svc, " / "), " work in ", months, " months")),
+      AmberRule = "No OffSec or Advisory work in 2 quarters",
+      RedRule = "Client buying it elsewhere",
+      FirstMove = "Joint account plan; propose a specific engagement, not a capability overview"
+
+// ▲ END STEP 46 — copy everything above this blank line, then Save as function → name: TAM_B09
+
+
+
+// === STEP 47 of 52 ==========================================================
+// NAME       : TAM_B10
+// WHAT IT IS : B10 Unbilled or scope drift
+let C = toscalar(TAM_ConfigBag());
+let marginFloor = coalesce(todouble(C["B10.RedMarginFloorPct"]), 25.0);
+let monthly = TAM_PSA()
+    | summarize NC = sum(NonContractedHours), Rev = sum(Revenue), Cost = sum(Cost) by Month;
+let wired = toscalar(monthly | count) > 0;
+let nc1 = toscalar(monthly | where Month == startofmonth(now(), -1) | project NC);
+let nc2 = toscalar(monthly | where Month == startofmonth(now(), -2) | project NC);
+let rev1 = toscalar(monthly | where Month == startofmonth(now(), -1) | project Rev);
+let cost1 = toscalar(monthly | where Month == startofmonth(now(), -1) | project Cost);
+let margin = iff(rev1 > 0, round(100.0 * (rev1 - cost1) / rev1, 1), real(null));
+let drift2 = coalesce(nc1, 0.0) > 0 and coalesce(nc2, 0.0) > 0;
+let state = case(not(wired), "No data",
+                 isnotnull(margin) and margin < marginFloor, "Red",
+                 drift2, "Amber",
+                 "Green");
+print Family = "Commercial", IndicatorId = "B10", Indicator = "Unbilled or scope drift",
+      Source = "PSA timesheets · TAM_PSA",
+      Value = todouble(coalesce(nc1, 0.0)),
+      Display = iff(not(wired), "—", strcat(round(coalesce(nc1, 0.0), 0), " h")),
+      Context = iff(isnull(margin), "non-contracted, last month", strcat("non-contracted; margin ", margin, "%")),
+      State = state,
+      Reason = iff(not(wired), "PSA roll-up (TAM_PSA) is empty",
+                   strcat("Non-contracted effort ", round(coalesce(nc1, 0.0), 0), " h last month, ", round(coalesce(nc2, 0.0), 0),
+                          " h the month before; margin ", coalesce(tostring(margin), "n/a"), "% (floor ", marginFloor, "%)")),
+      AmberRule = "Non-contracted effort 2 months running",
+      RedRule = strcat("Margin below ", marginFloor, "%"),
+      FirstMove = "Change & Risk Forum. Either it becomes a variation or it stops"
+
+// ▲ END STEP 47 — copy everything above this blank line, then Save as function → name: TAM_B10
+
+
+
+// === STEP 48 of 52 ==========================================================
+// NAME       : TAM_G01
+// WHAT IT IS : G01 Threshold governance: written down and reviewed quarterly
+let cfg = _GetWatchlist('TAM_EWIConfig')
+    | extend LR = todatetime(column_ifexists("LastReviewed", "")), K = tostring(column_ifexists("Key", ""))
+    | where K != "Account";
+let n = toscalar(cfg | count);
+let oldest = toscalar(cfg | summarize min(LR));
+let undated = toscalar(cfg | where isnull(LR) | count);
+let overdue = toscalar(cfg | where LR < ago(92d) | count);
+let state = case(n == 0, "Red",
+                 overdue > 0 or undated > 0, "Amber",
+                 "Green");
+print Family = "Governance", IndicatorId = "G01", Indicator = "Thresholds written down and reviewed quarterly",
+      Source = "TAM_EWIConfig watchlist",
+      Value = todouble(overdue + undated),
+      Display = iff(n == 0, "not set", strcat(n - overdue - undated, " / ", n, " current")),
+      Context = iff(isnull(oldest), "no review date", strcat("oldest review ", format_datetime(oldest, "yyyy-MM-dd"))),
+      State = state,
+      Reason = iff(n == 0, "No account thresholds recorded; every indicator is running on slide defaults",
+                   strcat(overdue, " threshold(s) not reviewed in 92 days; ", undated, " with no review date")),
+      AmberRule = "Any threshold unreviewed for a quarter",
+      RedRule = "No thresholds written down",
+      FirstMove = "Review thresholds with the client at the next QBR; record the date"
+
+// ▲ END STEP 48 — copy everything above this blank line, then Save as function → name: TAM_G01
+
+
+
+// === STEP 49 of 52 ==========================================================
+// NAME       : TAM_EWI
+// WHAT IT IS : Every EWI for this account, one row per indicator, with the state a week ago
+let C = toscalar(TAM_ConfigBag());
+let account = coalesce(tostring(C["Account"]), "Unnamed account");
+let prev = TAM_History()
+    | where TimeGenerated between (ago(8d) .. ago(6d))
+    | summarize arg_max(TimeGenerated, State) by IndicatorId
+    | project IndicatorId, PrevState = State;
+union TAM_A01(), TAM_A02(), TAM_A03(), TAM_A04(), TAM_A05(), TAM_A06(), TAM_A07(), TAM_A08(), TAM_A09(), TAM_A10(), TAM_A11(),
+      TAM_B01(), TAM_B02(), TAM_B03(), TAM_B04(), TAM_B05(), TAM_B06(), TAM_B07(), TAM_B08(), TAM_B09(), TAM_B10(),
+      TAM_G01()
+| join kind=leftouter prev on IndicatorId
+| extend Account = account,
+         EvaluatedAt = now(),
+         Watchlist = case(IndicatorId startswith "A", "A", IndicatorId startswith "B", "B", "Governance"),
+         StateRank = case(State == "Red", 3, State == "Amber", 2, State == "Green", 1, 0),
+         FamilyOrder = case(Family == "Telemetry", 1, Family == "Detection", 2, Family == "Engagement", 3, Family == "Commercial", 4, 5),
+         PrevState = coalesce(PrevState, ""),
+         StateChanged = isnotempty(PrevState) and PrevState != State
+| project Account, EvaluatedAt, Watchlist, Family, FamilyOrder, IndicatorId, Indicator, Source,
+          Value, Display, Context, State, StateRank, PrevState, StateChanged,
+          Reason, AmberRule, RedRule, FirstMove
+| order by FamilyOrder asc, IndicatorId asc
+
+// ▲ END STEP 49 — copy everything above this blank line, then Save as function → name: TAM_EWI
+
+
+
+// === STEP 50 of 52 ==========================================================
+// NAME       : TAM_SnapshotPayload
+// WHAT IT IS : One row, one JSON array: today's EWI rows shaped for TAM_EWISnapshot_CL (used by the daily Logic App)
+TAM_EWI()
+| project TimeGenerated = EvaluatedAt, Account, Family, IndicatorId, Indicator, Value, State, PrevState, StateChanged, Reason, FirstMove
+| summarize Rows = make_list(bag_pack("TimeGenerated", TimeGenerated, "Account", Account, "Family", Family,
+                                      "IndicatorId", IndicatorId, "Indicator", Indicator, "Value", Value,
+                                      "State", State, "PrevState", PrevState, "StateChanged", StateChanged,
+                                      "Reason", Reason, "FirstMove", FirstMove))
+
+// ▲ END STEP 50 — copy everything above this blank line, then Save as function → name: TAM_SnapshotPayload
+
+
+
+// === STEP 51 of 52 ==========================================================
+// NAME       : TAM_Trend
+// WHAT IT IS : Six-month monthly trend per indicator: snapshot history, with live backfill for agent health and TP rate
+let fromM = startofmonth(now(), -5);
+let account = coalesce(tostring(toscalar(TAM_ConfigBag())["Account"]), "Unnamed account");
+let snap = TAM_History()
+    | where TimeGenerated >= fromM
+    | summarize Value = round(avg(Value), 1) by Month = startofmonth(TimeGenerated), IndicatorId, Indicator
+    | extend Basis = "Snapshot", Pref = iff(IndicatorId == "A07", 2, 1);
+let a01live = DeviceInfo
+    | where TimeGenerated >= fromM and OnboardingStatus == "Onboarded"
+    | summarize arg_max(TimeGenerated, SensorHealthState) by DeviceId, Month = startofmonth(TimeGenerated)
+    | summarize Value = round(100.0 * countif(SensorHealthState == "Active") / count(), 1) by Month
+    | extend IndicatorId = "A01", Indicator = "EDR agent health / reporting rate", Basis = "Live (sensor state)", Pref = 2;
+let a07live = SecurityIncident
+    | where ClosedTime >= fromM
+    | summarize arg_max(TimeGenerated, Status, Classification, ClosedTime) by IncidentNumber
+    | where Status == "Closed" and Classification in ("TruePositive", "FalsePositive", "BenignPositive")
+    | summarize Value = round(100.0 * countif(Classification == "TruePositive") / count(), 1) by Month = startofmonth(ClosedTime)
+    | extend IndicatorId = "A07", Indicator = "True-positive rate", Basis = "Live (SecurityIncident)", Pref = 1;
+union snap, a01live, a07live
+| summarize arg_min(Pref, Value, Indicator, Basis) by Month, IndicatorId
+| project Account = account, Month, IndicatorId, Indicator, Value, Basis
+| order by IndicatorId asc, Month asc
+
+// ▲ END STEP 51 — copy everything above this blank line, then Save as function → name: TAM_Trend
+
+
+
+// === STEP 52 of 52 ==========================================================
+// NAME       : TAM_D_Noise
+// WHAT IT IS : Drill-down: top 10 noise generators by closed FP + benign incidents, last 30 days
+SecurityIncident
+| where CreatedTime > ago(30d)
+| summarize arg_max(TimeGenerated, Status, Classification, Title, CreatedTime, ClosedTime) by IncidentNumber
+| where Status == "Closed"
+| summarize Total = count(),
+            FalsePositive = countif(Classification == "FalsePositive"),
+            Benign = countif(Classification == "BenignPositive"),
+            TruePositive = countif(Classification == "TruePositive"),
+            AvgMinsToClose = round(avg(datetime_diff("minute", ClosedTime, CreatedTime)), 0)
+    by Title
+| extend Noise = FalsePositive + Benign, NoisePct = round(100.0 * (FalsePositive + Benign) / Total, 1)
+| top 10 by Noise desc
+
+// ▲ END STEP 52 — copy everything above this blank line, then Save as function → name: TAM_D_Noise
+
+
+// ###########################################################################
+// DONE. Now run:  TAM_EWI() | project Family, IndicatorId, Display, State, Reason
+// ###########################################################################

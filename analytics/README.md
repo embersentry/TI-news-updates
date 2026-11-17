@@ -146,16 +146,31 @@ the six analytics above, these need Sentinel auditing and health monitoring
 enabled plus several watchlists; prerequisites are listed in the header of each
 file.
 
-- `workbooks/tam-account-health.kql` — standalone account-health queries
-  (telemetry and connector health, detection coverage vs a client threat
-  profile, noise/escalation trends, governance trackers and an EWI RAG board),
-  one query per workbook step with the suggested visualization noted inline.
+Deploy order: load the `TAM_EWIConfig` watchlist, save the 52 functions, then
+import the workbook.
+
+- `workbooks/TAM_EWIConfig.csv` — per-account thresholds and settings, loaded
+  as a Sentinel watchlist named `TAM_EWIConfig` (search key `Key`). Every
+  threshold the indicators use comes from here, so this is the one file to edit
+  per account; the values shipped are for a sample account (`Contoso Ltd`).
+- `workbooks/ALL-FUNCTIONS-MANUAL.kql` — all 52 saved functions
+  (`TAM_ConfigBag`, the 24 indicators `TAM_A01`–`TAM_G01`, the `TAM_D_*`
+  drill-downs, `TAM_EWI`, `TAM_Trend`, `TAM_History`, `TAM_SnapshotPayload`),
+  in dependency order as numbered copy-paste steps for the Logs editor, with a
+  tick-off checklist in the header. Later steps call earlier ones, so order
+  matters.
 - `workbooks/TAM-EWI-workbook.json` — the TAM EWI Sentinel workbook itself
   (Morning view, Portfolio, Watchlist A, Watchlist B, Telemetry detail,
   Detection detail, History). Import via Sentinel > Workbooks > Add workbook >
   Advanced editor.
 - `workbooks/workbook-queries.kql` — every query in that workbook, in tab
-  order, for running and editing outside the workbook. It calls the saved
-  functions (`TAM_EWI()`, `TAM_Trend()`, `TAM_D_*()`, `TAM_History()`), which
-  must be deployed to the workspace first; the Portfolio tab additionally
-  reads the `TAM_EWISnapshot_CL` table written by the daily snapshot Logic App.
+  order, for running and editing outside the workbook.
+- `workbooks/tam-account-health.kql` — an earlier standalone pack of
+  account-health queries that reads the raw tables directly instead of calling
+  the `TAM_*` functions. Useful for a one-off look at an account with nothing
+  deployed.
+
+Still external to the repo: the daily snapshot job that writes
+`TAM_EWISnapshot_CL` from `TAM_SnapshotPayload()`. Without it the Portfolio and
+History tabs are empty and `PrevState` stays blank, so no indicator reports a
+week-on-week change; everything else works.

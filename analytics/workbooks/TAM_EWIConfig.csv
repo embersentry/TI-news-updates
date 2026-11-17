@@ -1,0 +1,44 @@
+Key,Value,Description,LastReviewed
+Account,Contoso Ltd,Display name for this account,
+A01.Target,98,Agent health target shown on the tile,2026-11-17
+A01.AmberBelow,97,Agent health amber below %,2026-11-17
+A01.RedBelow,93,Agent health red below %,2026-11-17
+A01.RedFallingWeeks,3,Red if weekly agent health falls N weeks running,2026-11-17
+A02.AmberQuietHours,24,Any contracted source quiet longer than this,2026-11-17
+A02.RedCriticalQuietHours,72,Critical source quiet longer than this,2026-11-17
+A02.RedQuietSourceCount,2,Red if this many sources are quiet,2026-11-17
+A03.AmberDriftPct,20,"Ingest drift vs 30-day baseline, amber",2026-11-17
+A03.RedDriftPct,40,"Ingest drift vs 30-day baseline, red",2026-11-17
+A03.LicenceCapGBPerDay,0,Commitment tier or daily cap in GB; 0 = not monitored,2026-11-17
+A03.RedCapHeadroomPct,10,Red when within this % of the cap,2026-11-17
+A05.AmberNoNewCoverageDays,60,Amber if no rule added in N days,2026-11-17
+A05.TopThreatPriority,Top,Priority label marking the top threat set in TAM_ThreatProfile,2026-11-17
+A06.AmberOldestDays,30,"Oldest open tuning item, amber",2026-11-17
+A06.RedOldestDays,60,"Oldest open tuning item, red",2026-11-17
+A06.RedGrowingWeeks,3,Red if open backlog grows N weeks running,2026-11-17
+A07.AgreedTPPct,60,True-positive rate agreed with the client,2026-11-17
+A08.SLA.High,30,"P1 response SLA, minutes",2026-11-17
+A08.SLA.Medium,120,"P2 response SLA, minutes",2026-11-17
+A08.SLA.Low,480,"P3 response SLA, minutes; 0 = no SLA",2026-11-17
+A08.SLAAttainmentPct,95,Contracted % of incidents within SLA,2026-11-17
+A08.RiskMarginPts,2,Red when attainment is within this many points of target,2026-11-17
+A09.EscalationLabel,Escalated,Incident tag the SOC applies on escalation to the client,2026-11-17
+A10.AmberReviewDays,365,"Runbook review age, amber",2026-11-17
+A11.AmberDays,30,"Critical exposure age, amber",2026-11-17
+A11.RedDays,60,"Critical exposure age, red",2026-11-17
+B02.AmberMedianWorkDays,3,"Client response median, amber",2026-11-17
+B02.RedMedianWorkDays,5,"Client response median, red",2026-11-17
+B03.ChangeWindowDays,90,Key-contact change counts for N days,2026-11-17
+B04.TargetScore,4.5,CSAT target shown on the tile (5-point scale),2026-11-17
+B04.ThresholdScore,4.0,CSAT below this is amber,2026-11-17
+B04.DetractorScore,2,CSAT at or below this is a detractor (red),2026-11-17
+B05.AmberUsedPct,70,"Entitlement used %, amber",2026-11-17
+B05.AmberFromElapsedPct,50,Only flag amber once this % of the term has elapsed,2026-11-17
+B05.RedUsedPct,50,"Entitlement used %, red near renewal",2026-11-17
+B05.RedDaysToRenewal,90,Red window before renewal,2026-11-17
+B06.AmberDaysToRenewal,180,Contract runway amber,2026-11-17
+B06.RedDaysToRenewal,90,Contract runway red if no renewal conversation,2026-11-17
+B06.ConversationCountsWithinDays,180,A renewal conversation counts if held within N days,2026-11-17
+B09.OtherServices,OffSec;Advisory,PSA service names counted as cross-service,2026-11-17
+B09.AmberInactiveMonths,6,No cross-service work in N months,2026-11-17
+B10.RedMarginFloorPct,25,Account margin floor %,2026-11-17
