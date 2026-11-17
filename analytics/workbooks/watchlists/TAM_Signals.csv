@@ -1,0 +1,4 @@
+SignalDate,Category,Level,Status,Description
+2026-11-05,EstateChange,Amber,Open,Contact-centre VDI pool live in Azure; not in the contracted asset list and not in DCR scope
+2026-09-18,Competitive,Amber,Closed,Procurement mentioned a market review at the September QBR; closed after the roadmap session
+2026-10-02,BuyingElsewhere,Amber,Closed,Penetration test bought from another supplier; addressed in the Q4 account plan

@@ -1,0 +1,13 @@
+Hostname,AssetType,Owner,EdrInScope
+CTS-DC-01,Domain Controller,IT Infrastructure,TRUE
+CTS-DC-02,Domain Controller,IT Infrastructure,TRUE
+CTS-APP-01,Application Server,Application Support,TRUE
+CTS-APP-02,Application Server,Application Support,TRUE
+CTS-SQL-01,Database Server,Database Team,TRUE
+CTS-FS-01,File Server,IT Infrastructure,TRUE
+CTS-WEB-01,Web Server (DMZ),Application Support,TRUE
+CTS-VDI-01,VDI Host,End User Computing,TRUE
+LT-FIN-014,Laptop,End User Computing,TRUE
+LT-SAL-022,Laptop,End User Computing,TRUE
+CTS-OT-GW-01,OT Gateway,OT Engineering,FALSE
+CTS-BKP-01,Backup Appliance,IT Infrastructure,FALSE

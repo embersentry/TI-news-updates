@@ -146,13 +146,14 @@ the six analytics above, these need Sentinel auditing and health monitoring
 enabled plus several watchlists; prerequisites are listed in the header of each
 file.
 
-Deploy order: load the `TAM_EWIConfig` watchlist, save the 52 functions, then
-import the workbook.
+Deploy order: load the watchlists (see `workbooks/watchlists/README.md`), save
+the 52 functions, then import the workbook.
 
-- `workbooks/TAM_EWIConfig.csv` — per-account thresholds and settings, loaded
-  as a Sentinel watchlist named `TAM_EWIConfig` (search key `Key`). Every
-  threshold the indicators use comes from here, so this is the one file to edit
-  per account; the values shipped are for a sample account (`Contoso Ltd`).
+- `workbooks/watchlists/` — the 16 watchlists the indicators read, as sample
+  CSVs for a fictional account (`Contoso Ltd`), with a README giving the alias,
+  search key and expected RAG state for each. `TAM_EWIConfig.csv` is the one to
+  edit per account: every threshold comes from there. Replace the contents
+  before using any of it with a client.
 - `workbooks/ALL-FUNCTIONS-MANUAL.kql` — all 52 saved functions
   (`TAM_ConfigBag`, the 24 indicators `TAM_A01`–`TAM_G01`, the `TAM_D_*`
   drill-downs, `TAM_EWI`, `TAM_Trend`, `TAM_History`, `TAM_SnapshotPayload`),

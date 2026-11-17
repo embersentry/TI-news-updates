@@ -1,0 +1,7 @@
+Month,Service,ContractedHours,NonContractedHours,Revenue,Cost
+2026-10-01,Managed SOC,160,0,48000,33000
+2026-09-01,Managed SOC,158,6,48000,34000
+2026-09-01,OffSec,12,0,9000,5600
+2026-08-01,Managed SOC,162,0,48000,33500
+2026-07-01,Managed SOC,155,4,48000,33000
+2026-06-01,Advisory,8,0,6400,3900
