@@ -1,0 +1,5 @@
+RequestId,TicketId,Summary,RequestedTime,RespondedTime,BlocksRemediation
+REQ-0041,TCK-1182,Confirm owner for three unmanaged servers in the DMZ,2026-11-03,2026-11-05,FALSE
+REQ-0042,TCK-1190,Approve DCR change for the Linux syslog collector,2026-11-06,2026-11-09,FALSE
+REQ-0043,TCK-1201,Provide asset owner list for the Q4 estate refresh,2026-11-12,,FALSE
+REQ-0044,TCK-1205,Nominate a deputy for out-of-hours containment approvals,2026-11-14,,FALSE

@@ -1,0 +1,9 @@
+RuleName,Platform,Enabled,Techniques,Tables,DateAdded
+Suspicious PowerShell execution,Sentinel,TRUE,T1059.001;T1059.003,DeviceProcessEvents,2026-03-12
+Phishing link followed by process creation,Defender XDR,TRUE,T1566.002,EmailUrlInfo;DeviceProcessEvents,2026-05-20
+Mass file encryption behaviour,Defender XDR,TRUE,T1486,DeviceFileEvents,2026-06-18
+Anomalous sign-in from unfamiliar ASN,Sentinel,TRUE,T1078.004,SigninLogs,2026-07-09
+LSASS credential access,Defender XDR,TRUE,T1003.001;T1003.002,DeviceProcessEvents,2026-04-02
+Exploitation of public-facing application,Sentinel,TRUE,T1190,CommonSecurityLog;DeviceNetworkEvents,2026-10-20
+Scheduled task persistence,Sentinel,TRUE,T1053.005,DeviceProcessEvents,2026-02-11
+Legacy RDP brute force (superseded),Sentinel,FALSE,T1021.001,SecurityEvent,2025-11-05

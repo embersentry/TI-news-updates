@@ -1,0 +1,7 @@
+TicketId,Queue,Title,CreatedTime,ClosedTime
+TCK-1120,Tuning,Suppress service-account logons from the backup server,2026-10-20,
+TCK-1168,UseCase,Detection for Entra ID temporary access pass abuse,2026-11-02,
+TCK-1175,Tuning,Tune impossible-travel false positives for travelling executives,2026-11-06,
+TCK-1041,Tuning,Exclude vulnerability scanner from port-scan detection,2026-09-08,2026-10-02
+TCK-1095,UseCase,Detection for OAuth consent grant abuse,2026-09-29,2026-10-30
+TCK-1150,Incident,Phishing triage - finance mailbox,2026-10-25,2026-10-26

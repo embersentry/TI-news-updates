@@ -1,0 +1,7 @@
+SourceName,TableName,Match,Critical,Owner
+Entra ID sign-in logs,SigninLogs,,TRUE,Identity Team
+Entra ID audit logs,AuditLogs,,FALSE,Identity Team
+Microsoft 365 activity,OfficeActivity,,FALSE,Collaboration Team
+Azure control plane,AzureActivity,,FALSE,Cloud Platform
+Perimeter firewall (Palo Alto),CommonSecurityLog,palo alto,FALSE,Network Team
+Linux application servers,Syslog,cts-app,FALSE,Application Support
