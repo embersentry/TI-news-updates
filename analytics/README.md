@@ -166,6 +166,11 @@ the 52 functions, then import the workbook.
   Advanced editor.
 - `workbooks/workbook-queries.kql` — every query in that workbook, in tab
   order, for running and editing outside the workbook.
+- `workbooks/TAM-EWI-workbook-guide.pptx` — a 19-slide explainer deck for
+  presenting the board: the operating model, the four states, the indicator row
+  grammar, a walkthrough of all seven tabs, the 24 indicators with their
+  thresholds, the limits to state before presenting, and the daily-to-quarterly
+  rhythm. Speaker notes on every slide.
 - `workbooks/tam-account-health.kql` — an earlier standalone pack of
   account-health queries that reads the raw tables directly instead of calling
   the `TAM_*` functions. Useful for a one-off look at an account with nothing
