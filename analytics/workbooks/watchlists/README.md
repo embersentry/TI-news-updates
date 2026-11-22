@@ -86,6 +86,11 @@ for `CommonSecurityLog` and `computer|hostname` for `Syslog`, then tests
 `Key contains Match`. Leave `Match` empty and the source is only checked at
 table level, so one silent firewall stays hidden inside a busy table.
 
+## Also in this folder
+
+`TAM-EWI-workbook-guide.pptx` — the 19-slide explainer deck for presenting the
+board. Not a watchlist; it lives here rather than one level up.
+
 ## Still external to the repo
 
 `TAM_Vulns_CL` (daily Defender Vulnerability Management exposure snapshots,
